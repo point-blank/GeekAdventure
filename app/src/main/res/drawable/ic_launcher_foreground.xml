@@ -1,0 +1,29 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Stylizowana Kostka D20 -->
+    <path
+        android:strokeColor="#FFD600"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M54,20 L84,35 L84,70 L54,85 L24,70 L24,35 Z" /> <!-- Zewnętrzny Hexagon -->
+        
+    <path
+        android:strokeColor="#FFD600"
+        android:strokeWidth="1.5"
+        android:pathData="M54,20 L54,85 M24,35 L84,35 M24,70 L84,70 M24,35 L54,85 L84,35" /> <!-- Wewnętrzne ścianki kostki -->
+        
+    <!-- Gwiazda Kompasu w środku -->
+    <path
+        android:fillColor="#FFD600"
+        android:pathData="M54,42 L57,51 L66,54 L57,57 L54,66 L51,57 L42,54 L51,51 Z" />
+        
+    <!-- Litera G (Geek) u góry -->
+    <path
+        android:fillColor="#FFD600"
+        android:pathData="M50,12 L58,12 L58,14 L50,14 Z" />
+</vector>
