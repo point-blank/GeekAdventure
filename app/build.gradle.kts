@@ -62,6 +62,8 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material) 
     implementation(libs.androidx.material.icons.extended)
+    implementation(libs.google.billing.ktx)
+    implementation(libs.google.play.ads)
     implementation(libs.androidx.navigation.compose)
 
     // Room Database

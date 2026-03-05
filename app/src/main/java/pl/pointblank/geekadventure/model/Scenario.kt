@@ -20,5 +20,6 @@ data class Scenario(
     val secondaryColor: Color,
     val basePrompt: String,
     val visualStyle: ScenarioStyle = ScenarioStyle.DEFAULT,
-    val imageUrl: String? = null
+    val imageUrl: String? = null,
+    val isPremium: Boolean = false
 )

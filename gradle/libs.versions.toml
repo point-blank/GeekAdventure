@@ -11,12 +11,16 @@ androidxLifecycle = "2.10.0"
 androidxActivityCompose = "1.12.4"
 androidxComposeBom = "2026.02.01"
 androidxNavigation = "2.9.7"
+billing = "7.1.1"
+playAds = "24.0.0"
 room = "2.8.4"
 ksp = "2.3.6"
 kotlinSerialization = "1.10.0"
 junit = "4.13.2"
 
 [libraries]
+google-billing-ktx = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "billing" }
+google-play-ads = { group = "com.google.android.gms", name = "play-services-ads", version.ref = "playAds" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "androidxCoreKtx" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "androidxLifecycle" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "androidxActivityCompose" }

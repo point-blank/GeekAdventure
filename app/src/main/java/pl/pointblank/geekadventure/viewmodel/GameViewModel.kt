@@ -15,66 +15,94 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import pl.pointblank.geekadventure.data.local.AppDatabase
-import pl.pointblank.geekadventure.data.local.ChatMessageEntity
-import pl.pointblank.geekadventure.data.local.LoreEntry
-import pl.pointblank.geekadventure.model.Scenario
-import pl.pointblank.geekadventure.util.ResponseParser
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
+import pl.pointblank.geekadventure.data.local.*
+
+import pl.pointblank.geekadventure.util.BillingManager
+import pl.pointblank.geekadventure.util.AdsManager
 
 class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getDatabase(application)
     private val chatDao = db.chatDao()
+    private val billingManager = BillingManager(application)
+    private val adsManager = AdsManager(application)
 
     private val _uiState = MutableStateFlow<GameState>(GameState.Loading)
     val uiState: StateFlow<GameState> = _uiState.asStateFlow()
 
+    val products = billingManager.products
+    val isAdLoaded = adsManager.isAdLoaded
+
+    fun showRewardedAd(activity: Activity) {
+        adsManager.showRewardedAd(activity) { amount ->
+            viewModelScope.launch {
+                val current = userStats.value ?: UserStats()
+                // Nagroda: +1 Energia (lub więcej w zależności od konfiguracji)
+                val updated = current.copy(actionPoints = (current.actionPoints + 1).coerceAtMost(20))
+                chatDao.insertUserStats(updated)
+            }
+        }
+    }
+
+    fun buyProduct(activity: Activity, productId: String) {
+        billingManager.launchPurchaseFlow(activity, productId)
+    }
+
+    // Ta metoda powinna być wywoływana po udanym zakupie
+    // W prawdziwej aplikacji warto użyć Callbacka z BillingManagera
+    fun processPurchaseSuccess(productId: String) {
+        viewModelScope.launch {
+            val current = userStats.value ?: UserStats()
+            val updated = when (productId) {
+                BillingManager.ENERGY_PACK -> current.copy(actionPoints = (current.actionPoints + 20).coerceAtMost(20))
+                BillingManager.CRYSTAL_PACK -> current.copy(chronocrystals = current.chronocrystals + 5)
+                BillingManager.PREMIUM_SUB -> current.copy(isPremiumUser = true)
+                else -> current
+            }
+            chatDao.insertUserStats(updated)
+        }
+    }
+
     private val _loreEntries = MutableStateFlow<List<LoreEntry>>(emptyList())
     val loreEntries: StateFlow<List<LoreEntry>> = _loreEntries.asStateFlow()
+
+    val userStats: StateFlow<UserStats?> = chatDao.getUserStats()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     private var generativeModel: GenerativeModel? = null
     private var chatSession: Chat? = null
     private var currentScenario: Scenario? = null
     private var imageGenerationEnabled: Boolean = false
 
-    private val masterPromptBase = """
-        Jesteś zaawansowanym silnikiem RPG "Geek Adventure". Twoim zadaniem jest pełnienie roli Mistrza Gry.
+    init {
+        // Inicjalizacja statystyk użytkownika jeśli ich nie ma
+        viewModelScope.launch {
+            chatDao.getUserStats().collect {
+                if (it == null) {
+                    chatDao.insertUserStats(UserStats())
+                }
+            }
+        }
+    }
 
-        KONTEKST ŚWIATA:
-        Scenariusz: [SCENARIO_TITLE]
-        Prompt bazowy: [SCENARIO_PROMPT]
-        Opis: [SCENARIO_DESC]
-        WAŻNE: Nie używaj nazw zastrzeżonych (np. Cyberpunk 2077, Gandalf, Batman). Stwórz własne, unikalne uniwersum inspirowane tymi gatunkami.
+    private suspend fun checkAndRefillEnergy(): UserStats {
+        val current = userStats.value ?: UserStats()
+        val now = System.currentTimeMillis()
+        val minutesPassed = (now - current.lastRefillTime) / (1000 * 60)
+        val pointsToAdd = (minutesPassed / 15).toInt()
 
-        ZASADY PROWADZENIA:
-        1. PERSPEKTYWA: Pisz w 2. osobie liczby pojedynczej ("Wchodzisz", "Czujesz"). Styl ma być immersyjny i zwięzły.
-        2. STRUKTURA KAŻDEJ ODPOWIEDZI: 
-           - [Nagłówek: Numer i Tytuł Rozdziału]
-           - Treść fabularna (2-3 krótkie akapity).
-           - [Mechanika: Wynik testu, jeśli dotyczy, np. [Test Zręczności: POWODZENIE]].
-           - LISTA WYBORU: A, B, C, D (zawsze proponuj 4 konkretne, zróżnicowane podejścia: siła, spryt, dyplomacja, ostrożność).
-           - UWAGA: Nigdy nie dodawaj opcji "E" ani przycisku "Własna akcja" do listy. Gracz posiada stałe pole tekstowe na dole ekranu do wpisywania autorskich pomysłów.
-           - ORAZ ZAWSZE na samym końcu dodaj tag [GAME_STATE: json_obiekt] ze statystykami gracza.
-           - NOWOŚĆ: Jeśli w tej turze gracz poznał ważny fakt, imię NPC lub zdobył unikalny przedmiot, dodaj tag [LORE_UPDATE: {"Klucz": "Krótki opis"}].
-        
-        FORMAT GAME_STATE JSON:
-        {"hp": Int, "gold": Int, "inventory": [String], "class": String, "stats": {"Str": Int, "Dex": Int, "Int": Int}}
-
-        3. MECHANIKA: Ty decydujesz o trudności zadań. Używaj tagów np. [Utrata HP: -10] w tekście, ale ZAWSZE aktualizuj te dane w JSONie GAME_STATE.
-        4. KONSEKWENCJE: Jeśli gracz podejmie głupią decyzję, nie bój się go ukarać utratą zasobów lub śmiercią postaci (co kończy grę).
-        5. ZŁOTA ZASADA: Nigdy nie opisuj myśli ani działań gracza. Czekaj na jego input.
-
-        PROMPT STARTOWY:
-        Zanim zaczniesz fabułę, przedstaw 3 unikalne archetypy postaci pasujące do wybranego świata. Każdy musi mieć:
-        - Nazwę klasy.
-        - Krótki opis.
-        - Statystyki bazowe (Siła, Zręczność, Inteligencja).
-        - Startowy ekwipunek.
-        Prezentuj te klasy jako opcje A, B, C.
-    """.trimIndent()
-
-    suspend fun hasSavedGame(scenarioId: String): Boolean {
-        return chatDao.getMessageCount(scenarioId) > 0
+        if (pointsToAdd > 0) {
+            val newPoints = (current.actionPoints + pointsToAdd).coerceAtMost(20)
+            val newStats = current.copy(
+                actionPoints = newPoints,
+                lastRefillTime = now - (minutesPassed % 15) * 60 * 1000
+            )
+            chatDao.insertUserStats(newStats)
+            return newStats
+        }
+        return current
     }
 
     fun initGame(scenario: Scenario, enableImages: Boolean = false, resume: Boolean = false) {
@@ -84,7 +112,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val config = generationConfig {
             temperature = 0.8f
             topP = 0.95f
-            maxOutputTokens = 2048
+            maxOutputTokens = 512 // Drastyczne ograniczenie kosztów
         }
 
         generativeModel = Firebase.ai.generativeModel(
@@ -99,11 +127,34 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun undoLastAction() {
+        val scenario = currentScenario ?: return
+        val stats = userStats.value ?: return
+
+        if (stats.chronocrystals <= 0) {
+            _uiState.value = GameState.Error("Brak Chronokryształów! Kup je lub obejrzyj reklamę.")
+            return
+        }
+
+        viewModelScope.launch {
+            chatDao.deleteLastTwoMessages(scenario.id)
+            chatDao.insertUserStats(stats.copy(chronocrystals = stats.chronocrystals - 1))
+            resumeAdventure() // Odśwież widok
+        }
+    }
+
     private fun startNewAdventure() {
         val scenario = currentScenario ?: return
         val model = generativeModel ?: return
 
         viewModelScope.launch {
+            // Sprawdzenie Premium
+            val stats = userStats.value ?: UserStats()
+            if (scenario.isPremium && !stats.isPremiumUser) {
+                _uiState.value = GameState.Error("Ten scenariusz wymaga subskrypcji Geek Master!")
+                return@launch
+            }
+
             chatDao.deleteMessagesForScenario(scenario.id)
             chatDao.deleteLoreForScenario(scenario.id)
             _loreEntries.value = emptyList()
@@ -156,6 +207,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         
         viewModelScope.launch {
             try {
+                // Sprawdzenie energii
+                val stats = checkAndRefillEnergy()
+                if (saveToHistory && stats.actionPoints <= 0 && !stats.isPremiumUser) {
+                    _uiState.value = GameState.Error("Brak energii! Odczekaj 15 minut lub doładuj teraz.")
+                    return@launch
+                }
+
                 val loreEntriesList = chatDao.getLoreForScenario(scenario.id)
                 val loreContext = if (loreEntriesList.isNotEmpty()) {
                     "\n\nPOPRZEDNIE FAKTY O ŚWIECIE (LORE):\n" + 
@@ -170,6 +228,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         role = "user",
                         content = userMessage
                     ))
+                    // Zużycie energii
+                    if (!stats.isPremiumUser) {
+                        chatDao.insertUserStats(stats.copy(actionPoints = stats.actionPoints - 1))
+                    }
                 }
 
                 _uiState.value = GameState.Processing(scenario, chat.history)

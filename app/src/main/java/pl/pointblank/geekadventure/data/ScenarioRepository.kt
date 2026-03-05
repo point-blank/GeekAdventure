@@ -40,7 +40,8 @@ object ScenarioRepository {
             themeColor = Color(0xFF2F4F4F),
             secondaryColor = Color(0xFF000000),
             basePrompt = "Świat Lovecraftowski horror: mrok, obłęd, kultyści i istoty spoza czasu.",
-            visualStyle = ScenarioStyle.HORROR
+            visualStyle = ScenarioStyle.HORROR,
+            isPremium = true
         ),
         Scenario(
             id = "superhero_league",
@@ -49,7 +50,8 @@ object ScenarioRepository {
             themeColor = Color(0xFFE53935),
             secondaryColor = Color(0xFF0D47A1),
             basePrompt = "Świat Superbohaterów: moce, kostiumy, tajne tożsamości i epickie bitwy o miasto.",
-            visualStyle = ScenarioStyle.SUPERHERO
+            visualStyle = ScenarioStyle.SUPERHERO,
+            isPremium = true
         ),
         Scenario(
             id = "wild_west",
@@ -58,7 +60,8 @@ object ScenarioRepository {
             themeColor = Color(0xFFA0522D),
             secondaryColor = Color(0xFFFFE4B5),
             basePrompt = "Świat Westernu: Dziki Zachód, saloony, pojedynki w południe, bandyci i złoto.",
-            visualStyle = ScenarioStyle.WESTERN
+            visualStyle = ScenarioStyle.WESTERN,
+            isPremium = true
         )
     )
 }

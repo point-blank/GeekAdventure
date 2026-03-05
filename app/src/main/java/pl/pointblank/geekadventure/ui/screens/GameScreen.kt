@@ -65,6 +65,7 @@ fun MarkdownText(text: String, style: androidx.compose.ui.text.TextStyle, color:
 fun GameScreen(viewModel: GameViewModel, onBack: () -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
     val loreEntries by viewModel.loreEntries.collectAsState()
+    val userStats by viewModel.userStats.collectAsState()
     var userInput by remember { mutableStateOf("") }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -86,7 +87,19 @@ fun GameScreen(viewModel: GameViewModel, onBack: () -> Unit) {
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ThematicDrawerContent(themeColor, style, parsed, loreEntries)
+            ThematicDrawerContent(
+                themeColor = themeColor, 
+                style = style, 
+                parsed = parsed, 
+                loreEntries = loreEntries,
+                userStats = userStats,
+                onUndo = {
+                    scope.launch {
+                        drawerState.close()
+                        viewModel.undoLastAction()
+                    }
+                }
+            )
         }
     ) {
         Scaffold(
@@ -426,7 +439,14 @@ fun ImagePlaceholder(prompt: String, color: Color) {
 }
 
 @Composable
-fun ThematicDrawerContent(themeColor: Color, style: ScenarioStyle, parsed: ResponseParser.ParsedResponse?, loreEntries: List<LoreEntry>) {
+fun ThematicDrawerContent(
+    themeColor: Color, 
+    style: ScenarioStyle, 
+    parsed: ResponseParser.ParsedResponse?, 
+    loreEntries: List<LoreEntry>,
+    userStats: pl.pointblank.geekadventure.data.local.UserStats?,
+    onUndo: () -> Unit
+) {
     val bgColor = if (style == ScenarioStyle.FANTASY) Color(0xFFF5E6D3) else Color(0xFF121212)
     val textColor = if (style == ScenarioStyle.FANTASY) Color(0xFF4B2C20) else Color.White
 
@@ -438,13 +458,34 @@ fun ThematicDrawerContent(themeColor: Color, style: ScenarioStyle, parsed: Respo
                 .padding(24.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Text("STATYSTYKI", style = MaterialTheme.typography.headlineMedium, color = themeColor, fontWeight = FontWeight.Black)
+            Text("ZASOBY", style = MaterialTheme.typography.headlineMedium, color = themeColor, fontWeight = FontWeight.Black)
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            UserStatsBar(userStats)
+            
             Spacer(modifier = Modifier.height(24.dp))
+            
+            if ((userStats?.chronocrystals ?: 0) > 0) {
+                Button(
+                    onClick = onUndo,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF), contentColor = Color.Black),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.History, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("COFNIJ CZAS (1 Kryształ)")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+            Text("STATYSTYKI POSTACI", style = MaterialTheme.typography.titleLarge, color = themeColor, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(16.dp))
             
             val stats = parsed?.gameState ?: ResponseParser.PlayerStats()
             StatRow(Icons.Default.Person, "Klasa", stats.`class`, themeColor, textColor)
-            StatRow(Icons.Default.Star, "HP", "${stats.hp}/100", themeColor, textColor)
-            StatRow(Icons.Default.Star, "Złoto", "${stats.gold} szt.", themeColor, textColor)
+            StatRow(Icons.Default.Favorite, "HP", "${stats.hp}/100", themeColor, textColor)
+            StatRow(Icons.Default.MonetizationOn, "Złoto", "${stats.gold} szt.", themeColor, textColor)
             
             Spacer(modifier = Modifier.height(32.dp))
             HorizontalDivider(color = themeColor.copy(alpha = 0.3f))
@@ -463,6 +504,61 @@ fun ThematicDrawerContent(themeColor: Color, style: ScenarioStyle, parsed: Respo
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun ErrorView(message: String, onRetry: () -> Unit) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
+            Icon(Icons.Default.Error, contentDescription = null, tint = Color.Red, modifier = Modifier.size(64.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(message, color = Color.White, style = MaterialTheme.typography.bodyLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(onClick = onRetry) {
+                Text("Spróbuj ponownie")
+            }
+        }
+    }
+}
+
+@Composable
+fun UserStatsBar(stats: pl.pointblank.geekadventure.data.local.UserStats?) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        StatItem(
+            icon = Icons.Default.Bolt,
+            label = "Energia",
+            value = "${stats?.actionPoints ?: 0}/20",
+            color = Color(0xFFFFD600)
+        )
+        
+        VerticalDivider(modifier = Modifier.height(24.dp), color = Color.White.copy(alpha = 0.1f))
+        
+        StatItem(
+            icon = Icons.Default.History,
+            label = "Kryształy",
+            value = "${stats?.chronocrystals ?: 0}",
+            color = Color(0xFF00E5FF)
+        )
+    }
+}
+
+@Composable
+fun StatItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(8.dp))
+        Column {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+            Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color.White)
         }
     }
 }

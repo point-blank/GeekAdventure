@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [ChatMessageEntity::class, LoreEntry::class], version = 2, exportSchema = false)
+@Database(entities = [ChatMessageEntity::class, LoreEntry::class, UserStats::class], version = 1, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
 
