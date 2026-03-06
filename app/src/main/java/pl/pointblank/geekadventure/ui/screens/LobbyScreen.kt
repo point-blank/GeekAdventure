@@ -56,8 +56,9 @@ fun LobbyScreen(
     }
 
     Scaffold(
+        containerColor = Color(0xFF050505), // CIEMNE TŁO
         topBar = {
-            Column {
+            Column(modifier = Modifier.background(Color(0xFF0D0D0D))) {
                 CenterAlignedTopAppBar(
                     title = { 
                         Text(
@@ -65,16 +66,19 @@ fun LobbyScreen(
                             fontWeight = FontWeight.Black,
                             style = MaterialTheme.typography.headlineMedium,
                             fontFamily = OrbitronFont,
-                            letterSpacing = 4.sp
+                            letterSpacing = 4.sp,
+                            color = Color.White
                         ) 
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
+                        containerColor = Color.Transparent,
+                        titleContentColor = Color.White
                     )
                 )
                 Box(modifier = Modifier.clickable { showShop = true }) {
                     UserStatsBar(userStats)
                 }
+                HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
             }
         }
     ) { paddingValues ->
@@ -89,7 +93,7 @@ fun LobbyScreen(
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    SectionHeader("DLA GEEKÓW", Color.Cyan)
+                    SectionHeader("DLA GEEKÓW", Color(0xFF00E5FF))
                 }
                 items(geekScenarios) { scenario ->
                     ScenarioItem(scenario, userStats?.isPremiumUser ?: false) {
@@ -116,7 +120,7 @@ fun LobbyScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                item { SectionHeader("DLA GEEKÓW", Color.Cyan) }
+                item { SectionHeader("DLA GEEKÓW", Color(0xFF00E5FF)) }
                 items(geekScenarios) { scenario ->
                     ScenarioItem(scenario, userStats?.isPremiumUser ?: false) {
                         selectedScenario = scenario
@@ -216,27 +220,26 @@ fun LobbyDialog(
     val themeData = ThemeEngine.getTheme(style, scenario.themeColor, scenario.secondaryColor)
     val font = themeData.fontFamily
 
-    // POPRAWA KOLORÓW DIALOGU DLA MISJI DZIECIĘCYCH
     val dialogBg = when {
-        scenario.isForKids -> Color.White // Zawsze białe tło dla dzieci
+        scenario.isForKids -> Color.White
         style == ScenarioStyle.CYBERPUNK -> Color(0xFF0D0D0D)
         style == ScenarioStyle.FANTASY -> Color(0xFFF5E6D3)
         style == ScenarioStyle.HORROR -> Color(0xFF050505)
         style == ScenarioStyle.PIRATES -> Color(0xFF004D40)
         style == ScenarioStyle.WESTERN -> Color(0xFFD2B48C)
         style == ScenarioStyle.SUPERHERO -> Color(0xFFE53935)
-        else -> MaterialTheme.colorScheme.surface
+        else -> Color(0xFF1A1A1A) // CIEMNY DOMYŚLNY
     }
     
     val dialogText = when {
-        scenario.isForKids -> Color.Black // Zawsze czarny tekst dla dzieci
+        scenario.isForKids -> Color.Black
         style == ScenarioStyle.FANTASY || style == ScenarioStyle.WESTERN -> Color(0xFF2B1B17)
         style == ScenarioStyle.SUPERHERO -> Color.Black
         else -> Color.White
     }
 
     val dialogAccent = if (isLocked) Color.Gray else when {
-        scenario.isForKids -> Color(0xFFFF4081) // Różowy akcent dla dzieci (czytelny na białym)
+        scenario.isForKids -> Color(0xFFFF4081)
         style == ScenarioStyle.FANTASY -> Color(0xFF8B4513)
         style == ScenarioStyle.WESTERN -> Color(0xFF5D4037)
         style == ScenarioStyle.SUPERHERO -> Color.Yellow
@@ -265,14 +268,14 @@ fun LobbyDialog(
                         color = dialogText,
                         fontWeight = FontWeight.Bold,
                         fontFamily = font,
-                        fontSize = if (scenario.isForKids) 18.sp else 14.sp // WIĘKSZA CZCIONKA DLA DZIECI
+                        fontSize = if (scenario.isForKids) 18.sp else 14.sp
                     )
                 } else {
                     Text(
                         text = scenario.description, 
                         color = dialogText, 
                         fontFamily = font,
-                        fontSize = if (scenario.isForKids) 18.sp else 14.sp // WIĘKSZA CZCIONKA DLA DZIECI
+                        fontSize = if (scenario.isForKids) 18.sp else 14.sp
                     )
                 }
                 Spacer(modifier = Modifier.height(24.dp))
@@ -319,7 +322,7 @@ fun LobbyDialog(
         dismissButton = {
             TextButton(
                 onClick = onDismiss,
-                colors = ButtonDefaults.textButtonColors(contentColor = dialogText.copy(alpha = 0.6f))
+                colors = ButtonDefaults.textButtonColors(contentColor = if (scenario.isForKids) Color.Black.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.6f))
             ) {
                 Text("Anuluj", fontFamily = font, fontSize = if (scenario.isForKids) 18.sp else 14.sp)
             }

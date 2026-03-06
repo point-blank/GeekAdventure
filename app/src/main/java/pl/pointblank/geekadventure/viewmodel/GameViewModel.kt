@@ -203,10 +203,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             
             if (scenario.isForKids) {
                 systemInstruction += "\n\n!!! WAŻNE - TRYB DLA DZIECI !!!\n" +
-                    "1. Używaj prostego, zrozumiałego języka.\n" +
-                    "2. Całkowity zakaz przemocy, krwi, używek i straszenia.\n" +
-                    "3. Skup się na przygodzie, odkrywaniu, pomaganiu innym i wartościach edukacyjnych.\n" +
-                    "4. Jeśli gracz rzuci kostką i przegra, nie karz go śmiercią, lecz drobnym niepowodzeniem, które da się naprawić."
+                    "1. Używaj prostego, radosnego i zrozumiałego języka.\n" +
+                    "2. Całkowity zakaz przemocy, straszenia i negatywnych zakończeń.\n" +
+                    "3. LOGIKA PORAŻKI: Jeśli gracz rzuci kostką i wynik będzie niski, NIE pisz o porażce. Zamiast tego opisz zabawną sytuację lub małą przeszkodę, z której dziecko może się czegoś nauczyć, a następnie daj mu drugą szansę lub pomóż mu odnieść sukces w inny, ciekawy sposób.\n" +
+                    "4. EDUKACJA: Zachęcaj do ciekawości i empatii wobec napotkanych postaci i zwierząt.\n" +
+                    "5. Cel gry to zawsze dobra zabawa i poczucie sprawstwa u dziecka."
             }
             
             systemInstruction += "\n\nRozpocznij teraz od powitania i przedstawienia 3 archetypów klas postaci (A, B, C)."
