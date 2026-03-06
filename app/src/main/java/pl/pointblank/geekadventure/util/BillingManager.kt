@@ -9,10 +9,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 class BillingManager(private val context: Context) {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     
     private val _isBillingReady = MutableStateFlow(false)
     val isBillingReady = _isBillingReady.asStateFlow()
@@ -30,7 +31,6 @@ class BillingManager(private val context: Context) {
     }
 
     private val purchasesUpdatedListener = PurchasesUpdatedListener { billingResult, purchases ->
-        Log.d(TAG, "Zakupy zaktualizowane: ${billingResult.responseCode}")
         if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && purchases != null) {
             for (purchase in purchases) {
                 handlePurchase(purchase)
@@ -52,64 +52,67 @@ class BillingManager(private val context: Context) {
     }
 
     private fun startConnection() {
-        Log.d(TAG, "Łączenie z Google Play Billing...")
         billingClient?.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(billingResult: BillingResult) {
                 if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                    Log.d(TAG, "Połączono pomyślnie!")
                     _isBillingReady.value = true
                     queryProducts()
-                } else {
-                    Log.e(TAG, "Błąd połączenia: ${billingResult.debugMessage}")
                 }
             }
 
             override fun onBillingServiceDisconnected() {
-                Log.w(TAG, "Rozłączono z usługą Billing. Próba ponownego połączenia...")
                 startConnection()
             }
         })
     }
 
     private fun queryProducts() {
-        val productList = listOf(
-            QueryProductDetailsParams.Product.newBuilder()
-                .setProductId(ENERGY_PACK)
-                .setProductType(BillingClient.ProductType.INAPP)
-                .build(),
-            QueryProductDetailsParams.Product.newBuilder()
-                .setProductId(CRYSTAL_PACK)
-                .setProductType(BillingClient.ProductType.INAPP)
-                .build(),
-            QueryProductDetailsParams.Product.newBuilder()
-                .setProductId(PREMIUM_SUB)
-                .setProductType(BillingClient.ProductType.SUBS)
+        scope.launch {
+            val allFetchedProducts = mutableListOf<ProductDetails>()
+
+            // 1. Zapytanie o produkty INAPP (Energia, Kryształy)
+            val inAppProductList = listOf(
+                QueryProductDetailsParams.Product.newBuilder()
+                    .setProductId(ENERGY_PACK)
+                    .setProductType(BillingClient.ProductType.INAPP)
+                    .build(),
+                QueryProductDetailsParams.Product.newBuilder()
+                    .setProductId(CRYSTAL_PACK)
+                    .setProductType(BillingClient.ProductType.INAPP)
+                    .build()
+            )
+            val inAppParams = QueryProductDetailsParams.newBuilder()
+                .setProductList(inAppProductList)
                 .build()
-        )
 
-        val params = QueryProductDetailsParams.newBuilder()
-            .setProductList(productList)
-            .build()
-
-        billingClient?.queryProductDetailsAsync(params) { billingResult, productDetailsList ->
-            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                Log.d(TAG, "Pobrano produkty: ${productDetailsList.size}")
-                productDetailsList.forEach { 
-                    Log.d(TAG, "Produkt: ${it.productId} - ${it.name}")
-                }
-                _products.value = productDetailsList
-            } else {
-                Log.e(TAG, "Błąd pobierania produktów: ${billingResult.debugMessage}")
+            val inAppResult = billingClient?.queryProductDetails(inAppParams)
+            if (inAppResult?.billingResult?.responseCode == BillingClient.BillingResponseCode.OK) {
+                inAppResult.productDetailsList?.let { allFetchedProducts.addAll(it) }
             }
+
+            // 2. Zapytanie o SUBSKRYPCJE (Geek Master)
+            val subProductList = listOf(
+                QueryProductDetailsParams.Product.newBuilder()
+                    .setProductId(PREMIUM_SUB)
+                    .setProductType(BillingClient.ProductType.SUBS)
+                    .build()
+            )
+            val subParams = QueryProductDetailsParams.newBuilder()
+                .setProductList(subProductList)
+                .build()
+
+            val subResult = billingClient?.queryProductDetails(subParams)
+            if (subResult?.billingResult?.responseCode == BillingClient.BillingResponseCode.OK) {
+                subResult.productDetailsList?.let { allFetchedProducts.addAll(it) }
+            }
+
+            Log.d(TAG, "Łącznie pobrano produktów: ${allFetchedProducts.size}")
+            _products.value = allFetchedProducts
         }
     }
 
     fun launchPurchaseFlow(activity: Activity, productId: String) {
-        val productDetails = _products.value.find { it.productId == productId }
-        if (productDetails == null) {
-            Log.e(TAG, "Nie znaleziono szczegółów produktu dla: $productId. Czy jest dodany w Play Console?")
-            return
-        }
+        val productDetails = _products.value.find { it.productId == productId } ?: return
         
         val productDetailsParamsList = listOf(
             BillingFlowParams.ProductDetailsParams.newBuilder()
@@ -128,29 +131,24 @@ class BillingManager(private val context: Context) {
             .setProductDetailsParamsList(productDetailsParamsList)
             .build()
 
-        Log.d(TAG, "Uruchamianie natywnego okna płatności dla: $productId")
         billingClient?.launchBillingFlow(activity, billingFlowParams)
     }
 
     private fun handlePurchase(purchase: Purchase) {
-        Log.d(TAG, "Obsługa zakupu: ${purchase.orderId}")
-        if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
-            if (!purchase.isAcknowledged) {
-                val acknowledgePurchaseParams = AcknowledgePurchaseParams.newBuilder()
-                    .setPurchaseToken(purchase.purchaseToken)
-                    .build()
-                
-                billingClient?.acknowledgePurchase(acknowledgePurchaseParams) { billingResult ->
-                    Log.d(TAG, "Zatwierdzenie zakupu: ${billingResult.responseCode}")
+        scope.launch {
+            if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
+                if (!purchase.isAcknowledged) {
+                    val acknowledgeParams = AcknowledgePurchaseParams.newBuilder()
+                        .setPurchaseToken(purchase.purchaseToken)
+                        .build()
+                    billingClient?.acknowledgePurchase(acknowledgeParams)
                 }
-            }
-            
-            if (purchase.products.contains(ENERGY_PACK) || purchase.products.contains(CRYSTAL_PACK)) {
-                val consumeParams = ConsumeParams.newBuilder()
-                    .setPurchaseToken(purchase.purchaseToken)
-                    .build()
-                billingClient?.consumeAsync(consumeParams) { result, _ ->
-                    Log.d(TAG, "Konsumpcja produktu: ${result.responseCode}")
+                
+                if (purchase.products.contains(ENERGY_PACK) || purchase.products.contains(CRYSTAL_PACK)) {
+                    val consumeParams = ConsumeParams.newBuilder()
+                        .setPurchaseToken(purchase.purchaseToken)
+                        .build()
+                    billingClient?.consumePurchase(consumeParams)
                 }
             }
         }

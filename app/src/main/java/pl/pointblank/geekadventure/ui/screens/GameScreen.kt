@@ -1,11 +1,7 @@
 package pl.pointblank.geekadventure.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -37,13 +33,24 @@ import pl.pointblank.geekadventure.viewmodel.GameViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GameScreen(viewModel: GameViewModel, onBack: () -> Unit) {
+fun GameScreen(
+    viewModel: GameViewModel, 
+    isTablet: Boolean,
+    onBack: () -> Unit
+) {
     val uiState by viewModel.uiState.collectAsState()
     val loreEntries by viewModel.loreEntries.collectAsState()
     val userStats by viewModel.userStats.collectAsState()
     var userInput by remember { mutableStateOf("") }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+
+    // Stan animacji wejścia
+    var contentVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(100)
+        contentVisible = true
+    }
 
     var showDamageFlash by remember { mutableStateOf(false) }
     val damageAlpha by animateFloatAsState(
@@ -81,24 +88,7 @@ fun GameScreen(viewModel: GameViewModel, onBack: () -> Unit) {
 
     val animatedBgColor by animateColorAsState(targetValue = theme.backgroundColor, label = "bg")
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ThematicDrawerContent(
-                themeColor = theme.primaryColor,
-                style = style,
-                parsed = parsed,
-                loreEntries = loreEntries,
-                userStats = userStats,
-                onUndo = {
-                    scope.launch {
-                        drawerState.close()
-                        viewModel.undoLastAction()
-                    }
-                }
-            )
-        }
-    ) {
+    if (isTablet) {
         Scaffold(
             containerColor = animatedBgColor,
             topBar = {
@@ -107,10 +97,10 @@ fun GameScreen(viewModel: GameViewModel, onBack: () -> Unit) {
                         Text(
                             text = scenario?.title?.uppercase() ?: "GEEK ADVENTURE",
                             fontFamily = theme.fontFamily,
-                            fontWeight = FontWeight.ExtraBold, // DODANO
-                            letterSpacing = 3.sp, // ZWIĘKSZONO
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 3.sp,
                             color = theme.primaryColor,
-                            fontSize = 20.sp // DODANO
+                            fontSize = 20.sp
                         )
                     },
                     navigationIcon = {
@@ -118,64 +108,153 @@ fun GameScreen(viewModel: GameViewModel, onBack: () -> Unit) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = theme.contentColor)
                         }
                     },
-                    actions = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu", tint = theme.contentColor)
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = Color.Transparent
-                    )
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
                 )
             }
         ) { paddingValues ->
-            Box(
-                modifier = Modifier
-                    .padding(paddingValues)
-                    .fillMaxSize()
-                    .vignette(Color.Black.copy(alpha = 0.8f))
-            ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        when (val state = uiState) {
-                            is GameState.Loading -> LoadingView(theme.primaryColor)
-                            is GameState.Processing -> ProcessingView(theme.primaryColor)
-                            is GameState.Error -> ErrorView(state.message) {
-                                if (scenario != null) {
-                                    viewModel.initGame(scenario, resume = true)
-                                } else {
-                                    onBack()
-                                }
-                            }
-                            is GameState.Success -> {
-                                ImmersiveGameContent(
-                                    parsed = parsed!!,
-                                    theme = theme
-                                )
-                            }
+            Box(modifier = Modifier.padding(paddingValues).fillMaxSize().vignette(Color.Black.copy(alpha = 0.8f))) {
+                Row(modifier = Modifier.fillMaxSize()) {
+                    // Animowany Lewy Panel
+                    AnimatedVisibility(
+                        visible = contentVisible,
+                        enter = slideInHorizontally(animationSpec = tween(600)) { -it } + fadeIn(),
+                        modifier = Modifier.weight(0.35f).fillMaxHeight()
+                    ) {
+                        Surface(
+                            color = theme.backgroundColor.copy(alpha = 0.5f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.1f))
+                        ) {
+                            ThematicDrawerContent(
+                                themeColor = theme.primaryColor,
+                                style = style,
+                                parsed = parsed,
+                                loreEntries = loreEntries,
+                                userStats = userStats,
+                                onUndo = { viewModel.undoLastAction() }
+                            )
                         }
                     }
 
-                    if (uiState is GameState.Success) {
-                        ImmersiveInteractionArea(
-                            parsed = parsed!!,
-                            theme = theme,
-                            userInput = userInput,
-                            onUserInputChange = { userInput = it },
-                            onSend = {
-                                viewModel.sendPrompt(it)
-                                userInput = ""
+                    // PRAWY PANEL
+                    Column(modifier = Modifier.weight(0.65f).fillMaxHeight()) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            when (val state = uiState) {
+                                is GameState.Loading -> LoadingView(theme.primaryColor)
+                                is GameState.Processing -> ProcessingView(theme.primaryColor)
+                                is GameState.Error -> ErrorView(state.message) {
+                                    if (scenario != null) viewModel.initGame(scenario, resume = true) else onBack()
+                                }
+                                is GameState.Success -> {
+                                    ImmersiveGameContent(parsed = parsed!!, theme = theme)
+                                }
                             }
-                        )
+                        }
+
+                        // Animowany obszar interakcji
+                        AnimatedVisibility(
+                            visible = contentVisible && uiState is GameState.Success,
+                            enter = slideInVertically(animationSpec = tween(600)) { it } + fadeIn()
+                        ) {
+                            ImmersiveInteractionArea(
+                                parsed = parsed!!,
+                                theme = theme,
+                                userInput = userInput,
+                                onUserInputChange = { userInput = it },
+                                onSend = {
+                                    viewModel.sendPrompt(it)
+                                    userInput = ""
+                                }
+                            )
+                        }
                     }
                 }
-
+                
                 if (damageAlpha > 0f) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Red.copy(alpha = damageAlpha))
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Red.copy(alpha = damageAlpha)))
+                }
+            }
+        }
+    } else {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                ThematicDrawerContent(
+                    themeColor = theme.primaryColor,
+                    style = style,
+                    parsed = parsed,
+                    loreEntries = loreEntries,
+                    userStats = userStats,
+                    onUndo = {
+                        scope.launch {
+                            drawerState.close()
+                            viewModel.undoLastAction()
+                        }
+                    }
+                )
+            }
+        ) {
+            Scaffold(
+                containerColor = animatedBgColor,
+                topBar = {
+                    CenterAlignedTopAppBar(
+                        title = {
+                            Text(
+                                text = scenario?.title?.uppercase() ?: "GEEK ADVENTURE",
+                                fontFamily = theme.fontFamily,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 2.sp,
+                                color = theme.primaryColor
+                            )
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = onBack) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = theme.contentColor)
+                            }
+                        },
+                        actions = {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(Icons.Default.Menu, contentDescription = "Menu", tint = theme.contentColor)
+                            }
+                        },
+                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
                     )
+                }
+            ) { paddingValues ->
+                Box(modifier = Modifier.padding(paddingValues).fillMaxSize().vignette(Color.Black.copy(alpha = 0.8f))) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            when (val state = uiState) {
+                                is GameState.Loading -> LoadingView(theme.primaryColor)
+                                is GameState.Processing -> ProcessingView(theme.primaryColor)
+                                is GameState.Error -> ErrorView(state.message) {
+                                    if (scenario != null) viewModel.initGame(scenario, resume = true) else onBack()
+                                }
+                                is GameState.Success -> {
+                                    ImmersiveGameContent(parsed = parsed!!, theme = theme)
+                                }
+                            }
+                        }
+
+                        AnimatedVisibility(
+                            visible = contentVisible && uiState is GameState.Success,
+                            enter = slideInVertically(animationSpec = tween(600, easing = LinearOutSlowInEasing)) { it } + fadeIn()
+                        ) {
+                            ImmersiveInteractionArea(
+                                parsed = parsed!!,
+                                theme = theme,
+                                userInput = userInput,
+                                onUserInputChange = { userInput = it },
+                                onSend = {
+                                    viewModel.sendPrompt(it)
+                                    userInput = ""
+                                }
+                            )
+                        }
+                    }
+
+                    if (damageAlpha > 0f) {
+                        Box(modifier = Modifier.fillMaxSize().background(Color.Red.copy(alpha = damageAlpha)))
+                    }
                 }
             }
         }
@@ -200,34 +279,54 @@ fun ImmersiveGameContent(
             .padding(horizontal = 24.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        val textModifier = Modifier.widthIn(max = 800.dp)
+
         if (parsed.chapterTitle != null) {
             Text(
                 text = parsed.chapterTitle,
                 style = MaterialTheme.typography.headlineSmall,
                 color = theme.primaryColor,
                 fontFamily = theme.fontFamily,
-                fontWeight = FontWeight.Black, // ZWIĘKSZONO
-                fontSize = 24.sp, // DODANO
-                modifier = Modifier.padding(bottom = 24.dp)
+                fontWeight = FontWeight.Black,
+                fontSize = 24.sp,
+                modifier = Modifier.padding(bottom = 24.dp).then(textModifier)
             )
         }
 
         if (parsed.imagePrompt != null) {
-            ShimmerImagePlaceholder(theme)
+            // Animacja pojawiania się obrazka
+            var imageVisible by remember { mutableStateOf(false) }
+            LaunchedEffect(parsed.imagePrompt) {
+                imageVisible = false
+                delay(300)
+                imageVisible = true
+            }
+            
+            AnimatedVisibility(
+                visible = imageVisible,
+                enter = expandVertically(animationSpec = tween(800)) + fadeIn()
+            ) {
+                Box(modifier = textModifier) {
+                    ShimmerImagePlaceholder(theme)
+                }
+            }
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        TypewriterText(
-            text = parsed.cleanText,
-            theme = theme
-        )
+        Box(modifier = textModifier) {
+            TypewriterText(
+                text = parsed.cleanText,
+                theme = theme
+            )
+        }
 
         if (parsed.mechanicsTag != null) {
             Spacer(modifier = Modifier.height(32.dp))
             Surface(
                 color = theme.primaryColor.copy(alpha = 0.1f),
                 shape = theme.containerShape,
-                border = androidx.compose.foundation.BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.3f))
+                border = androidx.compose.foundation.BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.3f)),
+                modifier = textModifier
             ) {
                 Text(
                     text = parsed.mechanicsTag,
@@ -262,27 +361,34 @@ fun ImmersiveInteractionArea(
                     endY = 100f
                 )
             )
-            .padding(16.dp)
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Column {
+        Column(modifier = Modifier.widthIn(max = 850.dp)) {
             val options = parsed.options.takeIf { it.isNotEmpty() } ?: listOf("A: Kontynuuj")
             
-            options.forEachIndexed { index, option ->
-                var visible by remember { mutableStateOf(false) }
-                LaunchedEffect(Unit) {
-                    delay(index * 100L + 500)
-                    visible = true
-                }
-                
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(animationSpec = tween(300))
-                ) {
-                    ImmersiveButton(
-                        text = option,
-                        theme = theme,
-                        onClick = { onSend(option) }
-                    )
+            options.chunked(2).forEach { rowOptions ->
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    rowOptions.forEach { option ->
+                        var visible by remember { mutableStateOf(false) }
+                        LaunchedEffect(option) {
+                            visible = false
+                            delay(100)
+                            visible = true
+                        }
+                        
+                        AnimatedVisibility(
+                            visible = visible,
+                            modifier = Modifier.weight(1f),
+                            enter = scaleIn(initialScale = 0.8f) + fadeIn()
+                        ) {
+                            ImmersiveButton(
+                                text = option,
+                                theme = theme,
+                                onClick = { onSend(option) }
+                            )
+                        }
+                    }
                 }
             }
 
@@ -315,7 +421,7 @@ fun ImmersiveInteractionArea(
                 ),
                 shape = theme.containerShape,
                 singleLine = true,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = theme.fontFamily, fontSize = 16.sp) // ZWIĘKSZONO
+                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = theme.fontFamily, fontSize = 16.sp)
             )
         }
     }
@@ -348,7 +454,7 @@ fun ThematicDrawerContent(
     userStats: UserStats?,
     onUndo: () -> Unit
 ) {
-    val theme = ThemeEngine.getTheme(style, themeColor, themeColor) // Pobieramy pełny motyw dla czcionek
+    val theme = ThemeEngine.getTheme(style, themeColor, themeColor)
     
     val bgColor = when(style) {
         ScenarioStyle.FANTASY -> Color(0xFFF5E6D3)
@@ -363,7 +469,8 @@ fun ThematicDrawerContent(
     }
 
     ModalDrawerSheet(
-        drawerContainerColor = bgColor
+        drawerContainerColor = bgColor,
+        drawerShape = RoundedCornerShape(0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -375,7 +482,7 @@ fun ThematicDrawerContent(
                 style = MaterialTheme.typography.headlineMedium, 
                 color = themeColor, 
                 fontWeight = FontWeight.Black,
-                fontFamily = theme.fontFamily // DODANO
+                fontFamily = theme.fontFamily
             )
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -402,7 +509,7 @@ fun ThematicDrawerContent(
                 style = MaterialTheme.typography.titleLarge, 
                 color = themeColor, 
                 fontWeight = FontWeight.Bold,
-                fontFamily = theme.fontFamily // DODANO
+                fontFamily = theme.fontFamily
             )
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -420,7 +527,7 @@ fun ThematicDrawerContent(
                 style = MaterialTheme.typography.titleLarge, 
                 color = themeColor, 
                 fontWeight = FontWeight.Bold,
-                fontFamily = theme.fontFamily // DODANO
+                fontFamily = theme.fontFamily
             )
             Spacer(modifier = Modifier.height(16.dp))
             
