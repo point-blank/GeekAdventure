@@ -21,5 +21,6 @@ data class Scenario(
     val basePrompt: String,
     val visualStyle: ScenarioStyle = ScenarioStyle.DEFAULT,
     val imageUrl: String? = null,
-    val isPremium: Boolean = false
+    val isPremium: Boolean = false,
+    val isForKids: Boolean = false
 )

@@ -191,12 +191,22 @@ fun WesternCard(scenario: Scenario, font: FontFamily, onClick: () -> Unit) {
 fun DefaultLustrousCard(scenario: Scenario, font: FontFamily, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().height(120.dp).clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = scenario.themeColor.copy(alpha = 0.1f)),
-        border = androidx.compose.foundation.BorderStroke(2.dp, scenario.themeColor)
+        colors = CardDefaults.cardColors(containerColor = scenario.themeColor),
+        border = androidx.compose.foundation.BorderStroke(2.dp, scenario.themeColor.copy(alpha = 0.5f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = scenario.title, style = MaterialTheme.typography.headlineSmall, fontFamily = font, color = scenario.themeColor, fontWeight = FontWeight.Bold)
-            Text(text = scenario.description, fontFamily = font, color = Color.White)
+            Text(
+                text = scenario.title, 
+                style = MaterialTheme.typography.headlineSmall, 
+                fontFamily = font, 
+                color = Color.Black, // CZARNY DLA CZYTELNOŚCI
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = scenario.description, 
+                fontFamily = font, 
+                color = Color.Black.copy(alpha = 0.7f) // CIEMNY DLA CZYTELNOŚCI
+            )
         }
     }
 }

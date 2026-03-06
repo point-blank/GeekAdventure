@@ -90,6 +90,7 @@ fun GameScreen(
     }
 
     val style = scenario?.visualStyle ?: ScenarioStyle.DEFAULT
+    val isForKids = scenario?.isForKids ?: false
     val baseThemeColor = scenario?.themeColor ?: MaterialTheme.colorScheme.primary
     val baseSecondaryColor = scenario?.secondaryColor ?: MaterialTheme.colorScheme.secondary
     
@@ -155,7 +156,7 @@ fun GameScreen(
                                         if (scenario != null) viewModel.initGame(scenario, resume = true) else onBack()
                                     }
                                     is GameState.Success -> {
-                                        ImmersiveGameContent(parsed = parsed!!, theme = theme)
+                                        ImmersiveGameContent(parsed = parsed!!, theme = theme, isForKids = isForKids)
                                     }
                                 }
                             }
@@ -168,6 +169,7 @@ fun GameScreen(
                                     ImmersiveInteractionArea(
                                         parsed = parsed,
                                         theme = theme,
+                                        isForKids = isForKids,
                                         userInput = userInput,
                                         onUserInputChange = { userInput = it },
                                         onSend = {
@@ -241,7 +243,7 @@ fun GameScreen(
                                         if (scenario != null) viewModel.initGame(scenario, resume = true) else onBack()
                                     }
                                     is GameState.Success -> {
-                                        ImmersiveGameContent(parsed = parsed!!, theme = theme)
+                                        ImmersiveGameContent(parsed = parsed!!, theme = theme, isForKids = isForKids)
                                     }
                                 }
                             }
@@ -254,6 +256,7 @@ fun GameScreen(
                                     ImmersiveInteractionArea(
                                         parsed = parsed,
                                         theme = theme,
+                                        isForKids = isForKids,
                                         userInput = userInput,
                                         onUserInputChange = { userInput = it },
                                         onSend = {
@@ -294,7 +297,8 @@ fun GameScreen(
 @Composable
 fun ImmersiveGameContent(
     parsed: ResponseParser.ParsedResponse,
-    theme: GameThemeData
+    theme: GameThemeData,
+    isForKids: Boolean = false
 ) {
     val scrollState = rememberScrollState()
     
@@ -318,7 +322,7 @@ fun ImmersiveGameContent(
                 color = theme.primaryColor,
                 fontFamily = theme.fontFamily,
                 fontWeight = FontWeight.Black,
-                fontSize = 24.sp,
+                fontSize = if (isForKids) 28.sp else 24.sp,
                 modifier = Modifier.padding(bottom = 24.dp).then(textModifier)
             )
         }
@@ -326,7 +330,8 @@ fun ImmersiveGameContent(
         Box(modifier = textModifier) {
             TypewriterText(
                 text = parsed.cleanText,
-                theme = theme
+                theme = theme,
+                isLarge = isForKids
             )
         }
 
@@ -357,6 +362,7 @@ fun ImmersiveGameContent(
 fun ImmersiveInteractionArea(
     parsed: ResponseParser.ParsedResponse,
     theme: GameThemeData,
+    isForKids: Boolean = false,
     userInput: String,
     onUserInputChange: (String) -> Unit,
     onSend: (String) -> Unit
@@ -379,7 +385,6 @@ fun ImmersiveInteractionArea(
         ) {
             val options = parsed.options.takeIf { it.isNotEmpty() } ?: listOf("A: Kontynuuj")
             
-            // POWRÓT DO UKŁADU SIATKI (2 KOLUMNY) DLA KRÓTKICH PRZYCISKÓW
             options.chunked(2).forEach { rowOptions ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -401,11 +406,11 @@ fun ImmersiveInteractionArea(
                             ImmersiveButton(
                                 text = option,
                                 theme = theme,
+                                isLarge = isForKids,
                                 onClick = { onSend(option) }
                             )
                         }
                     }
-                    // Jeśli w rzędzie jest tylko jeden przycisk, dodaj pustą przestrzeń
                     if (rowOptions.size == 1) {
                         Spacer(modifier = Modifier.weight(1f))
                     }
@@ -414,35 +419,37 @@ fun ImmersiveInteractionArea(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedTextField(
-                value = userInput,
-                onValueChange = onUserInputChange,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { 
-                    Text(
-                        "Wpisz własną akcję...", 
-                        color = theme.contentColor.copy(alpha = 0.4f),
-                        fontFamily = theme.fontFamily
-                    ) 
-                },
-                trailingIcon = {
-                    IconButton(onClick = { if (userInput.isNotBlank()) onSend(userInput) }) {
-                        Icon(Icons.Default.Send, contentDescription = "Wyślij", tint = theme.primaryColor)
-                    }
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = theme.primaryColor,
-                    cursorColor = theme.primaryColor,
-                    unfocusedBorderColor = theme.contentColor.copy(alpha = 0.3f),
-                    focusedTextColor = theme.contentColor,
-                    unfocusedTextColor = theme.contentColor,
-                    focusedContainerColor = theme.surfaceColor.copy(alpha = 0.5f),
-                    unfocusedContainerColor = theme.surfaceColor.copy(alpha = 0.3f)
-                ),
-                shape = theme.containerShape,
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = theme.fontFamily, fontSize = 16.sp)
-            )
+            if (!isForKids) {
+                OutlinedTextField(
+                    value = userInput,
+                    onValueChange = onUserInputChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { 
+                        Text(
+                            "Wpisz własną akcję...", 
+                            color = theme.contentColor.copy(alpha = 0.4f),
+                            fontFamily = theme.fontFamily
+                        ) 
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { if (userInput.isNotBlank()) onSend(userInput) }) {
+                            Icon(Icons.Default.Send, contentDescription = "Wyślij", tint = theme.primaryColor)
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = theme.primaryColor,
+                        cursorColor = theme.primaryColor,
+                        unfocusedBorderColor = theme.contentColor.copy(alpha = 0.3f),
+                        focusedTextColor = theme.contentColor,
+                        unfocusedTextColor = theme.contentColor,
+                        focusedContainerColor = theme.surfaceColor.copy(alpha = 0.5f),
+                        unfocusedContainerColor = theme.surfaceColor.copy(alpha = 0.3f)
+                    ),
+                    shape = theme.containerShape,
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = theme.fontFamily, fontSize = 16.sp)
+                )
+            }
         }
     }
 }

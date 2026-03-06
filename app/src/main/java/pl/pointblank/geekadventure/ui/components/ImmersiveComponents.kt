@@ -36,6 +36,7 @@ fun TypewriterText(
     text: String,
     theme: GameThemeData,
     speedMillis: Long = 10,
+    isLarge: Boolean = false,
     onComplete: () -> Unit = {}
 ) {
     var displayedText by remember { mutableStateOf("") }
@@ -80,8 +81,8 @@ fun TypewriterText(
         text = annotatedString,
         style = TextStyle(
             fontFamily = theme.fontFamily,
-            lineHeight = 30.sp,
-            fontSize = 18.sp,
+            lineHeight = if (isLarge) 36.sp else 30.sp,
+            fontSize = if (isLarge) 24.sp else 18.sp,
             letterSpacing = 0.5.sp
         ),
         color = theme.contentColor
@@ -92,6 +93,7 @@ fun TypewriterText(
 fun ImmersiveButton(
     text: String,
     theme: GameThemeData,
+    isLarge: Boolean = false,
     onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -100,12 +102,10 @@ fun ImmersiveButton(
     val scale by animateFloatAsState(targetValue = if (isPressed) 0.95f else 1.0f, label = "scale")
     val glowAlpha by animateFloatAsState(targetValue = if (isPressed) 0.8f else theme.glowStrength, label = "glow")
 
-    // Wyciąganie tagu atrybutu np. [Siła]
     val attrRegex = Regex("\\[(.*?)]")
     val attrMatch = attrRegex.find(text)
     val attribute = attrMatch?.groupValues?.get(1)
     
-    // Oczyszczanie tekstu z litery A: i z tagu [Atrybut]
     val cleanText = text
         .replace(Regex("^[A-E][:.)]\\s*"), "")
         .replace(attrRegex, "")
@@ -116,7 +116,7 @@ fun ImmersiveButton(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 64.dp) // Nieco wyższe dla 2 rzędów tekstu
+            .heightIn(min = if (isLarge) 80.dp else 64.dp)
             .padding(vertical = 4.dp)
             .graphicsLayer {
                 scaleX = scale
@@ -148,9 +148,9 @@ fun ImmersiveButton(
                     imageVector = icon,
                     contentDescription = null,
                     tint = theme.primaryColor,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(if (isLarge) 32.dp else 24.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(12.dp))
             }
             
             Column {
@@ -158,7 +158,7 @@ fun ImmersiveButton(
                     Text(
                         text = attribute.uppercase(),
                         style = TextStyle(
-                            fontSize = 10.sp,
+                            fontSize = if (isLarge) 14.sp else 10.sp,
                             fontWeight = FontWeight.Black,
                             color = theme.primaryColor,
                             fontFamily = theme.fontFamily,
@@ -169,7 +169,7 @@ fun ImmersiveButton(
                 Text(
                     text = cleanText,
                     style = TextStyle(
-                        fontSize = 14.sp,
+                        fontSize = if (isLarge) 20.sp else 14.sp,
                         color = theme.contentColor,
                         fontFamily = theme.fontFamily,
                         fontWeight = FontWeight.Bold

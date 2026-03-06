@@ -7,31 +7,41 @@ import pl.pointblank.geekadventure.model.ScenarioStyle
 object ScenarioRepository {
     val scenarios = listOf(
         Scenario(
-            id = "pirates_adventure",
-            title = "Klątwa Czarnej Perły",
-            description = "Wyrusz w rejs jako pirat, szukaj skarbów i mierz się z morskimi potworami.",
-            themeColor = Color(0xFF008080),
-            secondaryColor = Color(0xFFF4A460),
-            basePrompt = "Świat piratów: statki, rum, papugi, ukryte wyspy i klątwy Azteków. Klimat karaibski.",
-            visualStyle = ScenarioStyle.PIRATES
-        ),
-        Scenario(
-            id = "cyberpunk_neon",
-            title = "Neon City 2099",
-            description = "Mroczny świat przyszłości, wszczepy, hakerzy i wielkie korporacje.",
+            id = "neo_katowice",
+            title = "Neo-Katowice 2077",
+            description = "Cyberpunkowa wizja Śląska. Spodka nie ma, są korporacje i hakerzy w cieniu hałd.",
             themeColor = Color(0xFF00FFFF),
             secondaryColor = Color(0xFFFF00FF),
-            basePrompt = "Świat Cyberpunk: neony, deszcz, brudne zaułki, hakerzy i wszczepy. Styl mroczny sci-fi.",
+            basePrompt = "Świat Cyberpunka w Neo-Katowicach: technologia, neony, korporacje i śląski klimat.",
             visualStyle = ScenarioStyle.CYBERPUNK
         ),
         Scenario(
-            id = "fantasy_lord",
-            title = "Powiernik Pierścienia",
-            description = "Klasyczne High Fantasy. Smoki, elfy, krasnoludy i epicka walka dobra ze złem.",
-            themeColor = Color(0xFFD4AF37),
-            secondaryColor = Color(0xFF006400),
-            basePrompt = "Świat High Fantasy: magia, starożytne artefakty, zamki i niebezpieczne bestie.",
+            id = "fantasy_realm",
+            title = "Smocze Przymierze",
+            description = "Klasyczne high fantasy. Rycerze, magia i pradawne smoki budzące się ze snu.",
+            themeColor = Color(0xFF8B4513),
+            secondaryColor = Color(0xFFFFD700),
+            basePrompt = "Świat High Fantasy: magia, miecze, zamki i smoki.",
             visualStyle = ScenarioStyle.FANTASY
+        ),
+        Scenario(
+            id = "cursed_pearl",
+            title = "Klątwa Czarnej Perły",
+            description = "Piracka przygoda na Karaibach. Ukryte skarby, rum i nieumarła załoga.",
+            themeColor = Color(0xFF008080),
+            secondaryColor = Color(0xFFC2B280),
+            basePrompt = "Świat Piratów: morze, statki, skarby i pirackie legendy.",
+            visualStyle = ScenarioStyle.PIRATES
+        ),
+        Scenario(
+            id = "dnd_classic",
+            title = "Lochy i Smoki (D&D)",
+            description = "Klasyczna sesja RPG. Wybierz Wojownika, Maga lub Łotra i ruszaj do podziemi!",
+            themeColor = Color(0xFFE64A19),
+            secondaryColor = Color(0xFF212121),
+            basePrompt = "Klasyczne Dungeons & Dragons. Rozpocznij od wyboru klasy: Wojownik, Mag, Łotr, Kapłan. Używaj zasad d20.",
+            visualStyle = ScenarioStyle.FANTASY,
+            isPremium = true
         ),
         Scenario(
             id = "arkham_horror",
@@ -53,15 +63,50 @@ object ScenarioRepository {
             visualStyle = ScenarioStyle.SUPERHERO,
             isPremium = true
         ),
+        
+        // SEKCJA DLA DZIECI
         Scenario(
-            id = "wild_west",
-            title = "Słońce nad Deadwood",
-            description = "Dziki Zachód, rewolwerowcy, napady na banki i poszukiwacze złota.",
-            themeColor = Color(0xFFA0522D),
-            secondaryColor = Color(0xFFFFE4B5),
-            basePrompt = "Świat Westernu: Dziki Zachód, saloony, pojedynki w południe, bandyci i złoto.",
-            visualStyle = ScenarioStyle.WESTERN,
-            isPremium = true
+            id = "dino_island",
+            title = "Wyspa Dinozaurów",
+            description = "Zostań badaczem dinozaurów! Poznaj przyjaznego Triceratopsa i szukaj jaj T-Rexa.",
+            themeColor = Color(0xFF4CAF50),
+            secondaryColor = Color(0xFF8BC34A),
+            basePrompt = "PRZYGODA DLA DZIECI: Świat dinozaurów. Język prosty, edukacyjny, zero przemocy. Dinozaury są przyjazne.",
+            visualStyle = ScenarioStyle.DEFAULT,
+            isForKids = true
+        ),
+        Scenario(
+            id = "princess_kingdom",
+            title = "Królestwo Księżniczek",
+            description = "Pomóż królewnie odnaleźć zaginioną koronę i przygotuj bal w magicznym zamku.",
+            themeColor = Color(0xFFE91E63),
+            secondaryColor = Color(0xFFF06292),
+            basePrompt = "PRZYGODA DLA DZIECI: Magiczne królestwo, wróżki i zamki. Język bajkowy, bardzo bezpieczny i kolorowy.",
+            visualStyle = ScenarioStyle.FANTASY,
+            isPremium = true,
+            isForKids = true
+        ),
+        Scenario(
+            id = "sea_adventure",
+            title = "Podwodny Świat",
+            description = "Zanurkuj z delfinami i pomóż małej rybce odnaleźć drogę do domu w rafie koralowej.",
+            themeColor = Color(0xFF0288D1),
+            secondaryColor = Color(0xFF4FC3F7),
+            basePrompt = "PRZYGODA DLA DZIECI: Podwodny świat, rybki i wieloryby. Edukacja o oceanie, zero zagrożeń, radosny klimat.",
+            visualStyle = ScenarioStyle.PIRATES,
+            isPremium = true,
+            isForKids = true
+        ),
+        Scenario(
+            id = "cat_land",
+            title = "Kocia Kraina",
+            description = "Witaj w krainie, gdzie rządzą kotki! Pomóż puszystym przyjaciołom zbudować najwyższy drapak.",
+            themeColor = Color(0xFFFF9800),
+            secondaryColor = Color(0xFFFFB74D),
+            basePrompt = "PRZYGODA DLA DZIECI: Świat pełen kotków. Ciepły, zabawny język, skupienie na opiece nad zwierzętami i zabawie.",
+            visualStyle = ScenarioStyle.DEFAULT,
+            isPremium = true,
+            isForKids = true
         )
     )
 }

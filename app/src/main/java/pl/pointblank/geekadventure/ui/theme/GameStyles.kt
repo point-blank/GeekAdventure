@@ -113,13 +113,14 @@ object ThemeEngine {
             else -> GameThemeData(
                 primaryColor = basePrimary,
                 secondaryColor = baseSecondary,
-                backgroundColor = Color(0xFF121212),
-                contentColor = Color.White,
-                surfaceColor = Color(0xFF1E1E1E),
+                backgroundColor = basePrimary.copy(alpha = 0.9f), // Tło w kolorze misji
+                contentColor = Color(0xFF1A1A1A), // ZAWSZE CIEMNY TEKST DLA DEFAULT
+                surfaceColor = Color.White.copy(alpha = 0.8f),
                 fontFamily = FontFamily.Default,
-                containerShape = RoundedCornerShape(8.dp),
-                buttonShape = RoundedCornerShape(8.dp),
-                glowStrength = 0.2f
+                containerShape = RoundedCornerShape(12.dp),
+                buttonShape = RoundedCornerShape(12.dp),
+                glowStrength = 0.0f,
+                isDarkTheme = false
             )
         }
     }

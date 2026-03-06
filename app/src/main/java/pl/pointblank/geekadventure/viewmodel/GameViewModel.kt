@@ -201,8 +201,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 .replace("[SCENARIO_PROMPT]", scenario.basePrompt)
                 .replace("[SCENARIO_DESC]", scenario.description)
             
-            if (imageGenerationEnabled) {
-                systemInstruction += "\n\nDODATKOWA ZASADA DLA GRAFIKI: Na samym końcu odpowiedzi, po linii '---', dodaj tag [IMAGE_PROMPT: opis wizualny sceny po angielsku]. Tag musi być opisowy i pasować do klimatu sceny."
+            if (scenario.isForKids) {
+                systemInstruction += "\n\n!!! WAŻNE - TRYB DLA DZIECI !!!\n" +
+                    "1. Używaj prostego, zrozumiałego języka.\n" +
+                    "2. Całkowity zakaz przemocy, krwi, używek i straszenia.\n" +
+                    "3. Skup się na przygodzie, odkrywaniu, pomaganiu innym i wartościach edukacyjnych.\n" +
+                    "4. Jeśli gracz rzuci kostką i przegra, nie karz go śmiercią, lecz drobnym niepowodzeniem, które da się naprawić."
             }
             
             systemInstruction += "\n\nRozpocznij teraz od powitania i przedstawienia 3 archetypów klas postaci (A, B, C)."
