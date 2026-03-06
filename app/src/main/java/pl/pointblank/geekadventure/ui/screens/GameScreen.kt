@@ -45,7 +45,6 @@ fun GameScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    // Stan animacji wejścia
     var contentVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(100)
@@ -114,7 +113,6 @@ fun GameScreen(
         ) { paddingValues ->
             Box(modifier = Modifier.padding(paddingValues).fillMaxSize().vignette(Color.Black.copy(alpha = 0.8f))) {
                 Row(modifier = Modifier.fillMaxSize()) {
-                    // Animowany Lewy Panel
                     AnimatedVisibility(
                         visible = contentVisible,
                         enter = slideInHorizontally(animationSpec = tween(600)) { -it } + fadeIn(),
@@ -135,7 +133,6 @@ fun GameScreen(
                         }
                     }
 
-                    // PRAWY PANEL
                     Column(modifier = Modifier.weight(0.65f).fillMaxHeight()) {
                         Box(modifier = Modifier.weight(1f)) {
                             when (val state = uiState) {
@@ -150,7 +147,6 @@ fun GameScreen(
                             }
                         }
 
-                        // Animowany obszar interakcji
                         AnimatedVisibility(
                             visible = contentVisible && uiState is GameState.Success,
                             enter = slideInVertically(animationSpec = tween(600)) { it } + fadeIn()
@@ -293,25 +289,7 @@ fun ImmersiveGameContent(
             )
         }
 
-        if (parsed.imagePrompt != null) {
-            // Animacja pojawiania się obrazka
-            var imageVisible by remember { mutableStateOf(false) }
-            LaunchedEffect(parsed.imagePrompt) {
-                imageVisible = false
-                delay(300)
-                imageVisible = true
-            }
-            
-            AnimatedVisibility(
-                visible = imageVisible,
-                enter = expandVertically(animationSpec = tween(800)) + fadeIn()
-            ) {
-                Box(modifier = textModifier) {
-                    ShimmerImagePlaceholder(theme)
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
+        // USUNIĘTO SEKCJE Z OBRAZKIEM AI / SHIMMEREM
 
         Box(modifier = textModifier) {
             TypewriterText(

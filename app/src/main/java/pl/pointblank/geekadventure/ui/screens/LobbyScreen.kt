@@ -34,13 +34,12 @@ import pl.pointblank.geekadventure.ui.theme.OrbitronFont
 @Composable
 fun LobbyScreen(
     viewModel: GameViewModel, 
-    isTablet: Boolean, // Nowy parametr
+    isTablet: Boolean,
     onScenarioSelected: (Scenario, Boolean, Boolean) -> Unit
 ) {
     var selectedScenario by remember { mutableStateOf<Scenario?>(null) }
     var showDialog by remember { mutableStateOf(false) }
     var showShop by remember { mutableStateOf(false) }
-    var enableImages by remember { mutableStateOf(false) }
     var hasSave by remember { mutableStateOf(false) }
     
     val userStats by viewModel.userStats.collectAsState()
@@ -75,9 +74,8 @@ fun LobbyScreen(
         }
     ) { paddingValues ->
         if (isTablet) {
-            // UKŁAD DLA TABLETÓW (SIATKA)
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 300.dp), // Dynamiczna liczba kolumn
+                columns = GridCells.Adaptive(minSize = 300.dp),
                 modifier = Modifier
                     .padding(paddingValues)
                     .fillMaxSize(),
@@ -93,7 +91,6 @@ fun LobbyScreen(
                 }
             }
         } else {
-            // UKŁAD DLA TELEFONÓW (LISTA)
             LazyColumn(
                 modifier = Modifier
                     .padding(paddingValues)
@@ -125,16 +122,14 @@ fun LobbyScreen(
     }
 
     if (showDialog && selectedScenario != null) {
-        // ... (Dialog pozostaje bez zmian, ale zyskał już czcionki we wcześniejszych krokach)
         LobbyDialog(
             selectedScenario!!, 
             userStats?.isPremiumUser ?: false, 
             hasSave,
-            enableImages,
-            onEnableImagesChange = { enableImages = it },
             onDismiss = { showDialog = false },
-            onStart = { scenario, images, resume ->
-                onScenarioSelected(scenario, images, resume)
+            onStart = { scenario, resume ->
+                // Na razie na sztywno false dla obrazów
+                onScenarioSelected(scenario, false, resume)
             },
             viewModel = viewModel
         )
@@ -170,16 +165,13 @@ fun ScenarioItem(scenario: Scenario, isPremiumUser: Boolean, onClick: () -> Unit
     }
 }
 
-// Wydzielony dialog dla czytelności LobbyScreen
 @Composable
 fun LobbyDialog(
     scenario: Scenario,
     isPremiumUser: Boolean,
     hasSave: Boolean,
-    enableImages: Boolean,
-    onEnableImagesChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
-    onStart: (Scenario, Boolean, Boolean) -> Unit,
+    onStart: (Scenario, Boolean) -> Unit,
     viewModel: GameViewModel
 ) {
     val isLocked = scenario.isPremium && !isPremiumUser
@@ -238,24 +230,7 @@ fun LobbyDialog(
                 }
                 Spacer(modifier = Modifier.height(24.dp))
                 HorizontalDivider(color = dialogAccent.copy(alpha = 0.3f))
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                if (!isLocked) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Generuj obrazy AI do scen", color = dialogText, modifier = Modifier.weight(1f), fontFamily = font)
-                        Switch(
-                            checked = enableImages,
-                            onCheckedChange = onEnableImagesChange,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = dialogAccent,
-                                checkedTrackColor = dialogAccent.copy(alpha = 0.5f)
-                            )
-                        )
-                    }
-                }
+                // USUNIĘTO ROW Z PRZEŁĄCZNIKIEM OBRAZÓW AI
             }
         },
         confirmButton = {
@@ -276,14 +251,14 @@ fun LobbyDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (hasSave) {
                         TextButton(
-                            onClick = { onStart(scenario, enableImages, true) },
+                            onClick = { onStart(scenario, true) },
                             colors = ButtonDefaults.textButtonColors(contentColor = dialogAccent)
                         ) {
                             Text("Kontynuuj", fontFamily = font)
                         }
                     }
                     Button(
-                        onClick = { onStart(scenario, enableImages, false) },
+                        onClick = { onStart(scenario, false) },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = dialogAccent, 
                             contentColor = if (style == ScenarioStyle.SUPERHERO) Color.Black else Color.White
