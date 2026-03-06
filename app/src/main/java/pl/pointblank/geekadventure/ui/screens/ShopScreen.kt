@@ -19,13 +19,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.pointblank.geekadventure.util.BillingManager
 import pl.pointblank.geekadventure.viewmodel.GameViewModel
+import pl.pointblank.geekadventure.ui.components.findActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShopDialog(viewModel: GameViewModel, onDismiss: () -> Unit) {
     val products by viewModel.products.collectAsState()
     val isAdLoaded by viewModel.isAdLoaded.collectAsState()
-    val activity = LocalContext.current as Activity
+    val context = LocalContext.current
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -44,7 +45,6 @@ fun ShopDialog(viewModel: GameViewModel, onDismiss: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // SEKCJA REKLAM
                 item {
                     Text("DARMOWE ZASOBY", style = MaterialTheme.typography.labelLarge, color = Color.Gray)
                 }
@@ -57,19 +57,19 @@ fun ShopDialog(viewModel: GameViewModel, onDismiss: () -> Unit) {
                         color = Color(0xFF4CAF50),
                         enabled = isAdLoaded,
                         onClick = {
-                            viewModel.showRewardedAd(activity)
+                            context.findActivity()?.let { activity ->
+                                viewModel.showRewardedAd(activity)
+                            }
                         }
                     )
                 }
 
                 item { Spacer(modifier = Modifier.height(8.dp)) }
 
-                // SEKCJA MIKROPŁATNOŚCI
                 item {
                     Text("DOŁADOWANIA", style = MaterialTheme.typography.labelLarge, color = Color.Gray)
                 }
                 
-                // Szukamy produktów w liście z BillingManagera
                 val energyPack = products.find { it.productId == BillingManager.ENERGY_PACK }
                 val crystalPack = products.find { it.productId == BillingManager.CRYSTAL_PACK }
                 val premiumSub = products.find { it.productId == BillingManager.PREMIUM_SUB }
@@ -78,10 +78,14 @@ fun ShopDialog(viewModel: GameViewModel, onDismiss: () -> Unit) {
                     ShopItemRow(
                         icon = Icons.Default.Bolt,
                         title = "Pakiet Energii",
-                        description = "Pełne odnowienie (20 pkt)",
-                        price = energyPack?.oneTimePurchaseOfferDetails?.formattedPrice ?: "-- zł",
+                        description = "Pełne odnowienie (10 pkt)",
+                        price = energyPack?.oneTimePurchaseOfferDetails?.formattedPrice ?: "Ładowanie...",
                         color = Color(0xFFFFD600),
-                        onClick = { viewModel.buyProduct(activity, BillingManager.ENERGY_PACK) }
+                        onClick = { 
+                            context.findActivity()?.let { activity ->
+                                viewModel.buyProduct(activity, BillingManager.ENERGY_PACK) 
+                            }
+                        }
                     )
                 }
 
@@ -90,9 +94,13 @@ fun ShopDialog(viewModel: GameViewModel, onDismiss: () -> Unit) {
                         icon = Icons.Default.History,
                         title = "5 Chronokryształów",
                         description = "Cofaj czas częściej",
-                        price = crystalPack?.oneTimePurchaseOfferDetails?.formattedPrice ?: "-- zł",
+                        price = crystalPack?.oneTimePurchaseOfferDetails?.formattedPrice ?: "Ładowanie...",
                         color = Color(0xFF00E5FF),
-                        onClick = { viewModel.buyProduct(activity, BillingManager.CRYSTAL_PACK) }
+                        onClick = { 
+                            context.findActivity()?.let { activity ->
+                                viewModel.buyProduct(activity, BillingManager.CRYSTAL_PACK) 
+                            }
+                        }
                     )
                 }
 
@@ -107,9 +115,13 @@ fun ShopDialog(viewModel: GameViewModel, onDismiss: () -> Unit) {
                         icon = Icons.Default.Star,
                         title = "Geek Master Premium",
                         description = "Nielimitowana energia + Gemini Pro",
-                        price = premiumSub?.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList?.firstOrNull()?.formattedPrice?.let { "$it / msc" } ?: "-- zł",
+                        price = premiumSub?.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList?.firstOrNull()?.formattedPrice?.let { "$it / msc" } ?: "Ładowanie...",
                         color = Color(0xFFFFD700),
-                        onClick = { viewModel.buyProduct(activity, BillingManager.PREMIUM_SUB) }
+                        onClick = { 
+                            context.findActivity()?.let { activity ->
+                                viewModel.buyProduct(activity, BillingManager.PREMIUM_SUB) 
+                            }
+                        }
                     )
                 }
             }

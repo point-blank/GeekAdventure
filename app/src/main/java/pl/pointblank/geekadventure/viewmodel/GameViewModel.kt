@@ -1,6 +1,8 @@
 package pl.pointblank.geekadventure.viewmodel
 
+import android.app.Activity
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.Firebase
@@ -18,7 +20,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import pl.pointblank.geekadventure.data.local.*
-
+import pl.pointblank.geekadventure.model.Scenario
+import pl.pointblank.geekadventure.util.ResponseParser
 import pl.pointblank.geekadventure.util.BillingManager
 import pl.pointblank.geekadventure.util.AdsManager
 
@@ -35,12 +38,47 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     val products = billingManager.products
     val isAdLoaded = adsManager.isAdLoaded
 
+    private val masterPromptBase = """
+        Jesteś zaawansowanym silnikiem RPG "Geek Adventure". Twoim zadaniem jest pełnienie roli Mistrza Gry.
+
+        KONTEKST ŚWIATA:
+        Scenariusz: [SCENARIO_TITLE]
+        Prompt bazowy: [SCENARIO_PROMPT]
+        Opis: [SCENARIO_DESC]
+        WAŻNE: Nie używaj nazw zastrzeżonych (np. Cyberpunk 2077, Gandalf, Batman). Stwórz własne, unikalne uniwersum inspirowane tymi gatunkami.
+
+        ZASADY PROWADZENIA:
+        1. PERSPEKTYWA: Pisz w 2. osobie liczby pojedynczej ("Wchodzisz", "Czujesz"). Styl ma być immersyjny i zwięzły.
+        2. STRUKTURA KAŻDEJ ODPOWIEDZI: 
+           - [Nagłówek: Numer i Tytuł Rozdziału]
+           - Treść fabularna (2-3 krótkie akapity).
+           - [Mechanika: Wynik testu, jeśli dotyczy, np. [Test Zręczności: POWODZENIE]].
+           - LISTA WYBORU: A, B, C, D (zawsze proponuj 4 konkretne, zróżnicowane podejścia: siła, spryt, dyplomacja, ostrożność).
+           - UWAGA: Nigdy nie dodawaj opcji "E" ani przycisku "Własna akcja" do listy. Gracz posiada stałe pole tekstowe na dole ekranu do wpisywania autorskich pomysłów.
+           - ORAZ ZAWSZE na samym końcu dodaj tag [GAME_STATE: json_obiekt] ze statystykami gracza.
+           - NOWOŚĆ: Jeśli w tej turze gracz poznał ważny fakt, imię NPC lub zdobył unikalny przedmiot, dodaj tag [LORE_UPDATE: {"Klucz": "Krótki opis"}].
+        
+        FORMAT GAME_STATE JSON:
+        {"hp": Int, "gold": Int, "inventory": [String], "class": String, "stats": {"Str": Int, "Dex": Int, "Int": Int}}
+
+        3. MECHANIKA: Ty decydujesz o trudności zadań. Używaj tagów np. [Utrata HP: -10] w tekście, ale ZAWSZE aktualizuj te dane w JSONie GAME_STATE.
+        4. KONSEKWENCJE: Jeśli gracz podejmie głupią decyzję, nie bój się go ukarać utratą zasobów lub śmiercią postaci (co kończy grę).
+        5. ZŁOTA ZASADA: Nigdy nie opisuj myśli ani działań gracza. Czekaj na jego input.
+
+        PROMPT STARTOWY:
+        Zanim zaczniesz fabułę, przedstaw 3 unikalne archetypy postaci pasujące do wybranego świata. Każdy musi mieć:
+        - Nazwę klasy.
+        - Krótki opis.
+        - Statystyki bazowe (Siła, Zręczność, Inteligencja).
+        - Startowy ekwipunek.
+        Prezentuj te klasy jako opcje A, B, C.
+    """.trimIndent()
+
     fun showRewardedAd(activity: Activity) {
         adsManager.showRewardedAd(activity) { amount ->
             viewModelScope.launch {
                 val current = userStats.value ?: UserStats()
-                // Nagroda: +1 Energia (lub więcej w zależności od konfiguracji)
-                val updated = current.copy(actionPoints = (current.actionPoints + 1).coerceAtMost(20))
+                val updated = current.copy(actionPoints = (current.actionPoints + 1).coerceAtMost(10))
                 chatDao.insertUserStats(updated)
             }
         }
@@ -50,13 +88,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         billingManager.launchPurchaseFlow(activity, productId)
     }
 
-    // Ta metoda powinna być wywoływana po udanym zakupie
-    // W prawdziwej aplikacji warto użyć Callbacka z BillingManagera
     fun processPurchaseSuccess(productId: String) {
         viewModelScope.launch {
             val current = userStats.value ?: UserStats()
             val updated = when (productId) {
-                BillingManager.ENERGY_PACK -> current.copy(actionPoints = (current.actionPoints + 20).coerceAtMost(20))
+                BillingManager.ENERGY_PACK -> current.copy(actionPoints = (current.actionPoints + 10).coerceAtMost(10))
                 BillingManager.CRYSTAL_PACK -> current.copy(chronocrystals = current.chronocrystals + 5)
                 BillingManager.PREMIUM_SUB -> current.copy(isPremiumUser = true)
                 else -> current
@@ -77,7 +113,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private var imageGenerationEnabled: Boolean = false
 
     init {
-        // Inicjalizacja statystyk użytkownika jeśli ich nie ma
         viewModelScope.launch {
             chatDao.getUserStats().collect {
                 if (it == null) {
@@ -94,7 +129,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val pointsToAdd = (minutesPassed / 15).toInt()
 
         if (pointsToAdd > 0) {
-            val newPoints = (current.actionPoints + pointsToAdd).coerceAtMost(20)
+            val newPoints = (current.actionPoints + pointsToAdd).coerceAtMost(10)
             val newStats = current.copy(
                 actionPoints = newPoints,
                 lastRefillTime = now - (minutesPassed % 15) * 60 * 1000
@@ -105,6 +140,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         return current
     }
 
+    suspend fun hasSavedGame(scenarioId: String): Boolean {
+        return chatDao.getMessageCount(scenarioId) > 0
+    }
+
     fun initGame(scenario: Scenario, enableImages: Boolean = false, resume: Boolean = false) {
         currentScenario = scenario
         imageGenerationEnabled = enableImages
@@ -112,7 +151,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val config = generationConfig {
             temperature = 0.8f
             topP = 0.95f
-            maxOutputTokens = 512 // Drastyczne ograniczenie kosztów
+            maxOutputTokens = 1024 // Zwiększono z 512 dla stabilności
         }
 
         generativeModel = Firebase.ai.generativeModel(
@@ -139,7 +178,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             chatDao.deleteLastTwoMessages(scenario.id)
             chatDao.insertUserStats(stats.copy(chronocrystals = stats.chronocrystals - 1))
-            resumeAdventure() // Odśwież widok
+            resumeAdventure()
         }
     }
 
@@ -148,7 +187,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val model = generativeModel ?: return
 
         viewModelScope.launch {
-            // Sprawdzenie Premium
             val stats = userStats.value ?: UserStats()
             if (scenario.isPremium && !stats.isPremiumUser) {
                 _uiState.value = GameState.Error("Ten scenariusz wymaga subskrypcji Geek Master!")
@@ -207,10 +245,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         
         viewModelScope.launch {
             try {
-                // Sprawdzenie energii
                 val stats = checkAndRefillEnergy()
                 if (saveToHistory && stats.actionPoints <= 0 && !stats.isPremiumUser) {
-                    _uiState.value = GameState.Error("Brak energii! Odczekaj 15 minut lub doładuj teraz.")
+                    _uiState.value = GameState.Error("Brak energii! Odczekaj 15 minut lub obejrzyj reklamę w Sklepie.")
                     return@launch
                 }
 
@@ -228,7 +265,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         role = "user",
                         content = userMessage
                     ))
-                    // Zużycie energii
                     if (!stats.isPremiumUser) {
                         chatDao.insertUserStats(stats.copy(actionPoints = stats.actionPoints - 1))
                     }
@@ -239,7 +275,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 val response = chat.sendMessage(messageWithLore)
                 val responseText = response.text ?: "Mistrz Gry milczy..."
                 
-                val parsed = ResponseParser.parse(responseText)
+                val parsed = try {
+                    ResponseParser.parse(responseText)
+                } catch (e: Exception) {
+                    Log.e("GameViewModel", "BŁĄD PARSOWANIA AI: ${e.message}")
+                    Log.e("GameViewModel", "SUROWY TEKST: $responseText")
+                    ResponseParser.ParsedResponse(cleanText = responseText)
+                }
                 
                 parsed.loreUpdate?.forEach { entry ->
                     chatDao.insertLore(LoreEntry(scenarioId = scenario.id, key = entry.key, description = entry.value))
@@ -258,6 +300,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     latestResponse = responseText
                 )
             } catch (e: Exception) {
+                Log.e("GameViewModel", "BŁĄD PROMPTU: ${e.message}", e)
                 _uiState.value = GameState.Error(e.message ?: "Błąd AI")
             }
         }

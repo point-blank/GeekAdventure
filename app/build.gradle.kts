@@ -63,6 +63,7 @@ dependencies {
     implementation(libs.androidx.material) 
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.google.billing.ktx)
+    implementation(libs.androidx.ui.text.google.fonts)
     implementation(libs.google.play.ads)
     implementation(libs.androidx.navigation.compose)
 

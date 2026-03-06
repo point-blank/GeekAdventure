@@ -1,23 +1,19 @@
 package pl.pointblank.geekadventure.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,7 +22,10 @@ import pl.pointblank.geekadventure.model.Scenario
 import pl.pointblank.geekadventure.model.ScenarioStyle
 import pl.pointblank.geekadventure.viewmodel.GameViewModel
 import pl.pointblank.geekadventure.ui.components.LustrousScenarioCard
-import pl.pointblank.geekadventure.data.local.UserStats
+import pl.pointblank.geekadventure.ui.components.UserStatsBar
+import pl.pointblank.geekadventure.ui.components.findActivity
+import pl.pointblank.geekadventure.ui.theme.ThemeEngine
+import pl.pointblank.geekadventure.ui.theme.OrbitronFont
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,7 +52,9 @@ fun LobbyScreen(viewModel: GameViewModel, onScenarioSelected: (Scenario, Boolean
                         Text(
                             "GEEK ADVENTURE",
                             fontWeight = FontWeight.Black,
-                            style = MaterialTheme.typography.headlineMedium
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontFamily = OrbitronFont, // DODANO
+                            letterSpacing = 4.sp
                         ) 
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -78,7 +79,8 @@ fun LobbyScreen(viewModel: GameViewModel, onScenarioSelected: (Scenario, Boolean
                     "Wybierz swoją przygodę:",
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.padding(bottom = 8.dp),
-                    fontWeight = FontWeight.Light
+                    fontWeight = FontWeight.Light,
+                    fontFamily = OrbitronFont // DODANO (subtelny gamingowy vibe)
                 )
             }
             items(ScenarioRepository.scenarios) { scenario ->
@@ -105,7 +107,7 @@ fun LobbyScreen(viewModel: GameViewModel, onScenarioSelected: (Scenario, Boolean
                             ) {
                                 Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(12.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("PREMIUM", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                Text("PREMIUM", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, fontFamily = OrbitronFont)
                             }
                         }
                     }
@@ -121,18 +123,35 @@ fun LobbyScreen(viewModel: GameViewModel, onScenarioSelected: (Scenario, Boolean
     if (showDialog && selectedScenario != null) {
         val scenario = selectedScenario!!
         val isLocked = scenario.isPremium && userStats?.isPremiumUser != true
-        
         val style = scenario.visualStyle
         
+        // Pobieramy font z ThemeEngine dla dialogu
+        val themeData = ThemeEngine.getTheme(style, scenario.themeColor, scenario.secondaryColor)
+        val font = themeData.fontFamily
+
         val dialogBg = when(style) {
             ScenarioStyle.CYBERPUNK -> Color(0xFF0D0D0D)
             ScenarioStyle.FANTASY -> Color(0xFFF5E6D3)
             ScenarioStyle.HORROR -> Color(0xFF050505)
+            ScenarioStyle.PIRATES -> Color(0xFF004D40)
+            ScenarioStyle.WESTERN -> Color(0xFFD2B48C)
+            ScenarioStyle.SUPERHERO -> Color(0xFFE53935)
             else -> MaterialTheme.colorScheme.surface
         }
         
-        val dialogText = if (style == ScenarioStyle.FANTASY) Color(0xFF4B2C20) else Color.White
-        val dialogAccent = if (isLocked) Color.Gray else scenario.themeColor
+        val dialogText = when(style) {
+            ScenarioStyle.FANTASY, ScenarioStyle.WESTERN -> Color(0xFF2B1B17)
+            ScenarioStyle.SUPERHERO -> Color.Black
+            else -> Color.White
+        }
+
+        val dialogAccent = if (isLocked) Color.Gray else when(style) {
+            ScenarioStyle.FANTASY -> Color(0xFF8B4513)
+            ScenarioStyle.WESTERN -> Color(0xFF5D4037)
+            ScenarioStyle.SUPERHERO -> Color.Yellow
+            ScenarioStyle.PIRATES -> Color(0xFFC2B280)
+            else -> scenario.themeColor
+        }
 
         AlertDialog(
             onDismissRequest = { showDialog = false },
@@ -143,6 +162,7 @@ fun LobbyScreen(viewModel: GameViewModel, onScenarioSelected: (Scenario, Boolean
                     if (isLocked) "SCENARIUSZ ZABLOKOWANY" else scenario.title.uppercase(), 
                     color = dialogAccent, 
                     fontWeight = FontWeight.Black,
+                    fontFamily = font, // DODANO
                     letterSpacing = if (style == ScenarioStyle.CYBERPUNK) 2.sp else 0.sp
                 ) 
             },
@@ -152,10 +172,11 @@ fun LobbyScreen(viewModel: GameViewModel, onScenarioSelected: (Scenario, Boolean
                         Text(
                             "Ten scenariusz jest dostępny tylko dla subskrybentów Geek Master. Wesprzyj nas i graj bez limitów!",
                             color = dialogText,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = font // DODANO
                         )
                     } else {
-                        Text(scenario.description, color = dialogText)
+                        Text(scenario.description, color = dialogText, fontFamily = font) // DODANO
                     }
                     Spacer(modifier = Modifier.height(24.dp))
                     HorizontalDivider(color = dialogAccent.copy(alpha = 0.3f))
@@ -166,7 +187,7 @@ fun LobbyScreen(viewModel: GameViewModel, onScenarioSelected: (Scenario, Boolean
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Generuj obrazy AI do scen", color = dialogText, modifier = Modifier.weight(1f))
+                            Text("Generuj obrazy AI do scen", color = dialogText, modifier = Modifier.weight(1f), fontFamily = font)
                             Switch(
                                 checked = enableImages,
                                 onCheckedChange = { enableImages = it },
@@ -181,12 +202,17 @@ fun LobbyScreen(viewModel: GameViewModel, onScenarioSelected: (Scenario, Boolean
             },
             confirmButton = {
                 if (isLocked) {
-                    val activity = androidx.compose.ui.platform.LocalContext.current as android.app.Activity
+                    val context = LocalContext.current
                     Button(
-                        onClick = { viewModel.buyProduct(activity, pl.pointblank.geekadventure.util.BillingManager.PREMIUM_SUB) },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD700), contentColor = Color.Black)
+                        onClick = { 
+                            context.findActivity()?.let { activity ->
+                                viewModel.buyProduct(activity, pl.pointblank.geekadventure.util.BillingManager.PREMIUM_SUB) 
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD700), contentColor = Color.Black),
+                        shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Zasubskrybuj")
+                        Text("Zasubskrybuj", fontFamily = OrbitronFont)
                     }
                 } else {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -198,7 +224,7 @@ fun LobbyScreen(viewModel: GameViewModel, onScenarioSelected: (Scenario, Boolean
                                 },
                                 colors = ButtonDefaults.textButtonColors(contentColor = dialogAccent)
                             ) {
-                                Text("Kontynuuj")
+                                Text("Kontynuuj", fontFamily = font)
                             }
                         }
                         Button(
@@ -206,10 +232,13 @@ fun LobbyScreen(viewModel: GameViewModel, onScenarioSelected: (Scenario, Boolean
                                 showDialog = false
                                 onScenarioSelected(scenario, enableImages, false)
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = dialogAccent, contentColor = Color.White),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = dialogAccent, 
+                                contentColor = if (style == ScenarioStyle.SUPERHERO) Color.Black else Color.White
+                            ),
                             shape = if (style == ScenarioStyle.CYBERPUNK) RoundedCornerShape(0.dp) else RoundedCornerShape(12.dp)
                         ) {
-                            Text(if (hasSave) "Nowa gra" else "Rozpocznij przygodę")
+                            Text(if (hasSave) "Nowa gra" else "Rozpocznij", fontFamily = font)
                         }
                     }
                 }
@@ -219,60 +248,9 @@ fun LobbyScreen(viewModel: GameViewModel, onScenarioSelected: (Scenario, Boolean
                     onClick = { showDialog = false },
                     colors = ButtonDefaults.textButtonColors(contentColor = dialogText.copy(alpha = 0.6f))
                 ) {
-                    Text("Anuluj")
+                    Text("Anuluj", fontFamily = font)
                 }
             }
         )
-    }
-}
-
-@Composable
-fun UserStatsBar(stats: UserStats?) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        StatItem(
-            icon = Icons.Default.Bolt,
-            label = "Energia",
-            value = "${stats?.actionPoints ?: 0}/20",
-            color = Color(0xFFFFD600)
-        )
-        
-        VerticalDivider(modifier = Modifier.height(24.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-        
-        StatItem(
-            icon = Icons.Default.History,
-            label = "Kryształy",
-            value = "${stats?.chronocrystals ?: 0}",
-            color = Color(0xFF00E5FF)
-        )
-
-        if (stats?.isPremiumUser == true) {
-            VerticalDivider(modifier = Modifier.height(24.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-            StatItem(
-                icon = Icons.Default.Star,
-                label = "Status",
-                value = "PREMIUM",
-                color = Color(0xFFFFD700)
-            )
-        }
-    }
-}
-
-@Composable
-fun StatItem(icon: ImageVector, label: String, value: String, color: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(8.dp))
-        Column {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-            Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-        }
     }
 }

@@ -2,14 +2,13 @@ package pl.pointblank.geekadventure.util
 
 import android.app.Activity
 import android.content.Context
+import android.util.Log
 import com.android.billingclient.api.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class BillingManager(private val context: Context) {
 
@@ -23,14 +22,15 @@ class BillingManager(private val context: Context) {
 
     private var billingClient: BillingClient? = null
 
-    // Definicje ID produktów (muszą zgadzać się z Google Play Console)
     companion object {
+        const val TAG = "BillingManager"
         const val ENERGY_PACK = "energy_pack_20"
         const val CRYSTAL_PACK = "crystals_pack_5"
         const val PREMIUM_SUB = "geek_master_subscription"
     }
 
     private val purchasesUpdatedListener = PurchasesUpdatedListener { billingResult, purchases ->
+        Log.d(TAG, "Zakupy zaktualizowane: ${billingResult.responseCode}")
         if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && purchases != null) {
             for (purchase in purchases) {
                 handlePurchase(purchase)
@@ -52,16 +52,20 @@ class BillingManager(private val context: Context) {
     }
 
     private fun startConnection() {
+        Log.d(TAG, "Łączenie z Google Play Billing...")
         billingClient?.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(billingResult: BillingResult) {
                 if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                    Log.d(TAG, "Połączono pomyślnie!")
                     _isBillingReady.value = true
                     queryProducts()
+                } else {
+                    Log.e(TAG, "Błąd połączenia: ${billingResult.debugMessage}")
                 }
             }
 
             override fun onBillingServiceDisconnected() {
-                // Rekoneksja w razie potrzeby
+                Log.w(TAG, "Rozłączono z usługą Billing. Próba ponownego połączenia...")
                 startConnection()
             }
         })
@@ -89,18 +93,27 @@ class BillingManager(private val context: Context) {
 
         billingClient?.queryProductDetailsAsync(params) { billingResult, productDetailsList ->
             if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                Log.d(TAG, "Pobrano produkty: ${productDetailsList.size}")
+                productDetailsList.forEach { 
+                    Log.d(TAG, "Produkt: ${it.productId} - ${it.name}")
+                }
                 _products.value = productDetailsList
+            } else {
+                Log.e(TAG, "Błąd pobierania produktów: ${billingResult.debugMessage}")
             }
         }
     }
 
     fun launchPurchaseFlow(activity: Activity, productId: String) {
-        val productDetails = _products.value.find { it.productId == productId } ?: return
+        val productDetails = _products.value.find { it.productId == productId }
+        if (productDetails == null) {
+            Log.e(TAG, "Nie znaleziono szczegółów produktu dla: $productId. Czy jest dodany w Play Console?")
+            return
+        }
         
         val productDetailsParamsList = listOf(
             BillingFlowParams.ProductDetailsParams.newBuilder()
                 .setProductDetails(productDetails)
-                // Dla subskrypcji należy dodać offerToken jeśli jest dostępny
                 .apply {
                     if (productDetails.productType == BillingClient.ProductType.SUBS) {
                         productDetails.subscriptionOfferDetails?.firstOrNull()?.let {
@@ -112,34 +125,33 @@ class BillingManager(private val context: Context) {
         )
 
         val billingFlowParams = BillingFlowParams.newBuilder()
-            .setProductList(productDetailsParamsList)
+            .setProductDetailsParamsList(productDetailsParamsList)
             .build()
 
+        Log.d(TAG, "Uruchamianie natywnego okna płatności dla: $productId")
         billingClient?.launchBillingFlow(activity, billingFlowParams)
     }
 
     private fun handlePurchase(purchase: Purchase) {
+        Log.d(TAG, "Obsługa zakupu: ${purchase.orderId}")
         if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
-            // Acknowledge lub Consume w zależności od typu
             if (!purchase.isAcknowledged) {
                 val acknowledgePurchaseParams = AcknowledgePurchaseParams.newBuilder()
                     .setPurchaseToken(purchase.purchaseToken)
                     .build()
                 
                 billingClient?.acknowledgePurchase(acknowledgePurchaseParams) { billingResult ->
-                    if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                        // Tutaj powinieneś powiadomić ViewModel o sukcesie
-                        // W prawdziwej aplikacji warto zweryfikować zakup na backendzie
-                    }
+                    Log.d(TAG, "Zatwierdzenie zakupu: ${billingResult.responseCode}")
                 }
             }
             
-            // Produkty jednorazowe (Energia, Kryształy) należy skonsumować, aby móc je kupić ponownie
             if (purchase.products.contains(ENERGY_PACK) || purchase.products.contains(CRYSTAL_PACK)) {
                 val consumeParams = ConsumeParams.newBuilder()
                     .setPurchaseToken(purchase.purchaseToken)
                     .build()
-                billingClient?.consumeAsync(consumeParams) { _, _ -> }
+                billingClient?.consumeAsync(consumeParams) { result, _ ->
+                    Log.d(TAG, "Konsumpcja produktu: ${result.responseCode}")
+                }
             }
         }
     }
