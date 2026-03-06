@@ -22,5 +22,6 @@ data class Scenario(
     val visualStyle: ScenarioStyle = ScenarioStyle.DEFAULT,
     val imageUrl: String? = null,
     val isPremium: Boolean = false,
-    val isForKids: Boolean = false
+    val isForKids: Boolean = false,
+    val iconRes: Int? = null // Nowe pole
 )

@@ -19,17 +19,22 @@ val fontProvider = GoogleFont.Provider(
     certificates = R.array.com_google_android_gms_fonts_certs
 )
 
-// Definicje czcionek z JAWNYMI fallbackami do systemowych
+// Definicje czcionek
 val OrbitronFont = FontFamily(
-    Font(googleFont = GoogleFont("Orbitron"), fontProvider = fontProvider),
-    androidx.compose.ui.text.font.Font(resId = 0, weight = FontWeight.Normal) // Placeholder
-).let { FontFamily.Monospace } // WYMUSZAMY MONOSPACE DLA TESTU
+    Font(googleFont = GoogleFont("Orbitron"), fontProvider = fontProvider)
+)
 
-val CinzelFont = FontFamily.Serif // WYMUSZAMY SERIF DLA TESTU
+val CinzelFont = FontFamily(
+    Font(googleFont = GoogleFont("Cinzel"), fontProvider = fontProvider)
+)
 
-val ComicFont = FontFamily.SansSerif // WYMUSZAMY SANS DLA TESTU
+val SpecialEliteFont = FontFamily(
+    Font(googleFont = GoogleFont("Special Elite"), fontProvider = fontProvider)
+)
 
-val SpecialEliteFont = FontFamily.Monospace
+val ComicFont = FontFamily(
+    Font(googleFont = GoogleFont("Permanent Marker"), fontProvider = fontProvider)
+)
 
 val CyberpunkShape = GenericShape { size, _ ->
     moveTo(0f, 15f); lineTo(15f, 0f); lineTo(size.width, 0f)
@@ -58,7 +63,7 @@ object ThemeEngine {
                 backgroundColor = Color(0xFF050505),
                 contentColor = basePrimary,
                 surfaceColor = Color(0xFF121212),
-                fontFamily = FontFamily.Monospace, // Gwarantowany techniczny wygląd
+                fontFamily = OrbitronFont,
                 containerShape = CyberpunkShape,
                 buttonShape = CyberpunkShape,
                 glowStrength = 0.8f
@@ -69,7 +74,7 @@ object ThemeEngine {
                 backgroundColor = Color(0xFFF5E6D3),
                 contentColor = Color(0xFF2B1B17),
                 surfaceColor = Color(0xFFEBDCB2).copy(alpha = 0.6f),
-                fontFamily = FontFamily.Serif, // Gwarantowany elegancki wygląd
+                fontFamily = CinzelFont,
                 containerShape = RoundedCornerShape(16.dp),
                 buttonShape = RoundedCornerShape(50),
                 glowStrength = 0.1f,
@@ -81,7 +86,7 @@ object ThemeEngine {
                 backgroundColor = Color(0xFF0A0A0A),
                 contentColor = Color(0xFFD3D3D3),
                 surfaceColor = Color(0xFF1A1A1A),
-                fontFamily = FontFamily.Monospace,
+                fontFamily = SpecialEliteFont,
                 containerShape = RoundedCornerShape(2.dp),
                 buttonShape = RoundedCornerShape(2.dp),
                 glowStrength = 0.0f
@@ -92,7 +97,7 @@ object ThemeEngine {
                 backgroundColor = Color(0xFFF5F5F5),
                 contentColor = Color.Black,
                 surfaceColor = Color.White,
-                fontFamily = FontFamily.SansSerif,
+                fontFamily = ComicFont,
                 containerShape = RoundedCornerShape(0.dp),
                 buttonShape = RoundedCornerShape(4.dp),
                 glowStrength = 0.0f,
@@ -104,7 +109,7 @@ object ThemeEngine {
                 backgroundColor = Color(0xFFD2B48C),
                 contentColor = Color(0xFF2B1B17),
                 surfaceColor = Color(0xFFEBDCB2),
-                fontFamily = FontFamily.Serif,
+                fontFamily = CinzelFont,
                 containerShape = RoundedCornerShape(8.dp),
                 buttonShape = RoundedCornerShape(8.dp),
                 glowStrength = 0.0f,
@@ -113,8 +118,8 @@ object ThemeEngine {
             else -> GameThemeData(
                 primaryColor = basePrimary,
                 secondaryColor = baseSecondary,
-                backgroundColor = basePrimary.copy(alpha = 0.9f), // Tło w kolorze misji
-                contentColor = Color(0xFF1A1A1A), // ZAWSZE CIEMNY TEKST DLA DEFAULT
+                backgroundColor = basePrimary.copy(alpha = 0.9f),
+                contentColor = Color(0xFF1A1A1A),
                 surfaceColor = Color.White.copy(alpha = 0.8f),
                 fontFamily = FontFamily.Default,
                 containerShape = RoundedCornerShape(12.dp),

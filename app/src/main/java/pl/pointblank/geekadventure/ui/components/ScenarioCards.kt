@@ -9,12 +9,14 @@ import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -25,7 +27,6 @@ import pl.pointblank.geekadventure.ui.theme.ThemeEngine
 
 @Composable
 fun LustrousScenarioCard(scenario: Scenario, onClick: () -> Unit) {
-    // Pobieramy font z ThemeEngine
     val theme = ThemeEngine.getTheme(scenario.visualStyle, scenario.themeColor, scenario.secondaryColor)
     val font = theme.fontFamily
 
@@ -37,6 +38,25 @@ fun LustrousScenarioCard(scenario: Scenario, onClick: () -> Unit) {
         ScenarioStyle.PIRATES -> PiratesCard(scenario, font, onClick)
         ScenarioStyle.WESTERN -> WesternCard(scenario, font, onClick)
         else -> DefaultLustrousCard(scenario, font, onClick)
+    }
+}
+
+@Composable
+fun CardBackgroundIcon(iconRes: Int?, color: Color, alpha: Float = 0.15f) {
+    if (iconRes != null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomEnd
+        ) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                tint = color.copy(alpha = alpha),
+                modifier = Modifier
+                    .size(140.dp)
+                    .offset(x = 30.dp, y = 30.dp)
+            )
+        }
     }
 }
 
@@ -67,19 +87,15 @@ fun CyberpunkCard(scenario: Scenario, font: FontFamily, onClick: () -> Unit) {
             .background(Color(0xFF0D0D0D))
             .border(2.dp, Brush.linearGradient(listOf(scenario.themeColor, scenario.secondaryColor)), cyberpunkShape)
             .clickable(onClick = onClick)
-            .drawBehind {
-                for (i in 0..size.width.toInt() step 40) {
-                    drawLine(Color.White.copy(alpha = 0.05f), Offset(i.toFloat(), 0f), Offset(i.toFloat(), size.height))
-                }
-            }
-            .padding(20.dp)
     ) {
-        Column {
+        CardBackgroundIcon(scenario.iconRes, scenario.themeColor, 0.2f)
+        
+        Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 text = scenario.title.uppercase(),
                 style = MaterialTheme.typography.headlineSmall,
                 color = scenario.themeColor,
-                fontFamily = font, // DODANO
+                fontFamily = font,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = 2.sp
             )
@@ -88,7 +104,7 @@ fun CyberpunkCard(scenario: Scenario, font: FontFamily, onClick: () -> Unit) {
                 text = scenario.description,
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.8f),
-                fontFamily = font // DODANO
+                fontFamily = font
             )
         }
     }
@@ -103,14 +119,15 @@ fun FantasyCard(scenario: Scenario, font: FontFamily, onClick: () -> Unit) {
             .background(Color(0xFFF5E6D3))
             .border(4.dp, Brush.sweepGradient(listOf(scenario.themeColor, scenario.secondaryColor, scenario.themeColor)), MaterialTheme.shapes.medium)
             .clickable(onClick = onClick)
-            .padding(16.dp)
     ) {
-        Column {
+        CardBackgroundIcon(scenario.iconRes, Color.Black, 0.05f)
+        
+        Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = scenario.title,
                 style = MaterialTheme.typography.headlineSmall,
                 color = Color(0xFF4B2C20),
-                fontFamily = font, // DODANO
+                fontFamily = font,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(4.dp))
@@ -118,7 +135,7 @@ fun FantasyCard(scenario: Scenario, font: FontFamily, onClick: () -> Unit) {
                 text = scenario.description,
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color(0xFF5D4037),
-                fontFamily = font // DODANO
+                fontFamily = font
             )
         }
     }
@@ -130,9 +147,11 @@ fun PiratesCard(scenario: Scenario, font: FontFamily, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth().height(140.dp)
             .background(Color(0xFF004D40))
             .border(3.dp, Color(0xFFC2B280))
-            .clickable(onClick = onClick).padding(20.dp)
+            .clickable(onClick = onClick)
     ) {
-        Column {
+        CardBackgroundIcon(scenario.iconRes, Color.White, 0.1f)
+        
+        Column(modifier = Modifier.padding(20.dp)) {
             Text(text = scenario.title, color = Color(0xFFC2B280), fontFamily = font, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineSmall)
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = scenario.description, color = Color.White.copy(alpha = 0.9f), fontFamily = font, style = MaterialTheme.typography.bodyMedium)
@@ -145,9 +164,11 @@ fun HorrorCard(scenario: Scenario, font: FontFamily, onClick: () -> Unit) {
     Box(
         modifier = Modifier.fillMaxWidth().height(140.dp)
             .background(Color.Black).border(1.dp, scenario.themeColor.copy(alpha = 0.5f))
-            .clickable(onClick = onClick).padding(20.dp)
+            .clickable(onClick = onClick)
     ) {
-        Column {
+        CardBackgroundIcon(scenario.iconRes, scenario.themeColor, 0.1f)
+        
+        Column(modifier = Modifier.padding(20.dp)) {
             Text(text = scenario.title, color = scenario.themeColor, fontFamily = font, style = MaterialTheme.typography.headlineSmall)
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = scenario.description, color = Color.Gray, fontFamily = font, style = MaterialTheme.typography.bodyMedium)
@@ -161,9 +182,11 @@ fun ComicCard(scenario: Scenario, font: FontFamily, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth().height(140.dp)
             .drawBehind { drawRect(Color.Black, Offset(12f, 12f), size) }
             .background(scenario.themeColor).border(3.dp, Color.Black)
-            .clickable(onClick = onClick).padding(16.dp)
+            .clickable(onClick = onClick)
     ) {
-        Column {
+        CardBackgroundIcon(scenario.iconRes, Color.Black, 0.1f)
+        
+        Column(modifier = Modifier.padding(16.dp)) {
             Surface(color = Color.Yellow, border = androidx.compose.foundation.BorderStroke(2.dp, Color.Black)) {
                 Text(text = scenario.title.uppercase(), color = Color.Black, fontFamily = font, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 8.dp))
             }
@@ -177,9 +200,11 @@ fun WesternCard(scenario: Scenario, font: FontFamily, onClick: () -> Unit) {
     Box(
         modifier = Modifier.fillMaxWidth().height(140.dp)
             .background(Color(0xFFD2B48C)).border(2.dp, Color(0xFF5D4037))
-            .clickable(onClick = onClick).padding(20.dp)
+            .clickable(onClick = onClick)
     ) {
-        Column {
+        CardBackgroundIcon(scenario.iconRes, Color.Black, 0.05f)
+        
+        Column(modifier = Modifier.padding(20.dp)) {
             Text(text = scenario.title.uppercase(), color = Color(0xFF5D4037), fontFamily = font, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineSmall)
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = scenario.description, color = Color(0xFF5D4037).copy(alpha = 0.8f), fontFamily = font, style = MaterialTheme.typography.bodyMedium)
@@ -194,19 +219,23 @@ fun DefaultLustrousCard(scenario: Scenario, font: FontFamily, onClick: () -> Uni
         colors = CardDefaults.cardColors(containerColor = scenario.themeColor),
         border = androidx.compose.foundation.BorderStroke(2.dp, scenario.themeColor.copy(alpha = 0.5f))
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = scenario.title, 
-                style = MaterialTheme.typography.headlineSmall, 
-                fontFamily = font, 
-                color = Color.Black, // CZARNY DLA CZYTELNOŚCI
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = scenario.description, 
-                fontFamily = font, 
-                color = Color.Black.copy(alpha = 0.7f) // CIEMNY DLA CZYTELNOŚCI
-            )
+        Box(modifier = Modifier.fillMaxSize()) {
+            CardBackgroundIcon(scenario.iconRes, Color.Black, 0.1f)
+            
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = scenario.title, 
+                    style = MaterialTheme.typography.headlineSmall, 
+                    fontFamily = font, 
+                    color = Color.Black,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = scenario.description, 
+                    fontFamily = font, 
+                    color = Color.Black.copy(alpha = 0.7f)
+                )
+            }
         }
     }
 }
