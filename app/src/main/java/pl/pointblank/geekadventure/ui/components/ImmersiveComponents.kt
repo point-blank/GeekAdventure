@@ -60,14 +60,11 @@ fun TypewriterText(
         val matches = boldRegex.findAll(raw)
         
         matches.forEach { match ->
-            // Tekst zwykły przed boldem
             append(raw.substring(cursor, match.range.first))
-            
-            // Tekst pogrubiony - TUTAJ DODAJĘ fontFamily
             withStyle(SpanStyle(
                 fontWeight = FontWeight.Bold, 
                 color = theme.primaryColor,
-                fontFamily = theme.fontFamily // POPRAWKA
+                fontFamily = theme.fontFamily
             )) {
                 append(match.groupValues[1])
             }
@@ -84,7 +81,7 @@ fun TypewriterText(
         style = TextStyle(
             fontFamily = theme.fontFamily,
             lineHeight = 30.sp,
-            fontSize = 18.sp, // ZWIĘKSZONO
+            fontSize = 18.sp,
             letterSpacing = 0.5.sp
         ),
         color = theme.contentColor
@@ -103,13 +100,24 @@ fun ImmersiveButton(
     val scale by animateFloatAsState(targetValue = if (isPressed) 0.95f else 1.0f, label = "scale")
     val glowAlpha by animateFloatAsState(targetValue = if (isPressed) 0.8f else theme.glowStrength, label = "glow")
 
-    val icon = getIconForOption(text)
+    // Wyciąganie tagu atrybutu np. [Siła]
+    val attrRegex = Regex("\\[(.*?)]")
+    val attrMatch = attrRegex.find(text)
+    val attribute = attrMatch?.groupValues?.get(1)
+    
+    // Oczyszczanie tekstu z litery A: i z tagu [Atrybut]
+    val cleanText = text
+        .replace(Regex("^[A-E][:.)]\\s*"), "")
+        .replace(attrRegex, "")
+        .trim()
+
+    val icon = getIconForOption(attribute ?: cleanText)
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 60.dp)
-            .padding(vertical = 6.dp)
+            .heightIn(min = 64.dp) // Nieco wyższe dla 2 rzędów tekstu
+            .padding(vertical = 4.dp)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -131,7 +139,7 @@ fun ImmersiveButton(
             )
             .clip(theme.buttonShape)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -140,44 +148,33 @@ fun ImmersiveButton(
                     imageVector = icon,
                     contentDescription = null,
                     tint = theme.primaryColor,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(20.dp)
                 )
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(8.dp))
             }
             
-            val letterRegex = Regex("^([A-E])[:.)]\\s*(.*)")
-            val match = letterRegex.find(text)
-            
-            if (match != null) {
-                val (letter, content) = match.destructured
-                Text(
-                    text = "$letter.",
-                    style = TextStyle(
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Black,
-                        color = theme.primaryColor,
-                        fontFamily = theme.fontFamily
+            Column {
+                if (attribute != null) {
+                    Text(
+                        text = attribute.uppercase(),
+                        style = TextStyle(
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black,
+                            color = theme.primaryColor,
+                            fontFamily = theme.fontFamily,
+                            letterSpacing = 1.sp
+                        )
                     )
-                )
-                Spacer(modifier = Modifier.width(10.dp))
+                }
                 Text(
-                    text = content,
+                    text = cleanText,
                     style = TextStyle(
-                        fontSize = 16.sp,
-                        color = theme.contentColor,
-                        fontFamily = theme.fontFamily,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
-            } else {
-                Text(
-                    text = text,
-                    style = TextStyle(
-                        fontSize = 16.sp,
+                        fontSize = 14.sp,
                         color = theme.contentColor,
                         fontFamily = theme.fontFamily,
                         fontWeight = FontWeight.Bold
-                    )
+                    ),
+                    maxLines = 2
                 )
             }
         }
@@ -187,11 +184,11 @@ fun ImmersiveButton(
 fun getIconForOption(text: String): ImageVector? {
     val lower = text.lowercase()
     return when {
-        "atak" in lower || "walcz" in lower || "miecz" in lower -> Icons.Default.Hardware
-        "uciekaj" in lower || "unik" in lower || "biegnij" in lower -> Icons.AutoMirrored.Filled.ArrowForward
-        "rozmawiaj" in lower || "pytaj" in lower || "charyzma" in lower -> Icons.Default.RecordVoiceOver
-        "zbadaj" in lower || "szukaj" in lower || "patrz" in lower -> Icons.Default.Search
-        "skradaj" in lower || "cisza" in lower -> Icons.Default.VisibilityOff
+        "siła" in lower || "atak" in lower || "walcz" in lower || "miecz" in lower -> Icons.Default.Hardware
+        "zwinność" in lower || "unik" in lower || "biegnij" in lower || "uciekaj" in lower -> Icons.AutoMirrored.Filled.ArrowForward
+        "charyzma" in lower || "rozmawiaj" in lower || "pytaj" in lower -> Icons.Default.RecordVoiceOver
+        "inteligencja" in lower || "zbadaj" in lower || "szukaj" in lower || "patrz" in lower -> Icons.Default.Search
+        "skradanie" in lower || "cisza" in lower -> Icons.Default.VisibilityOff
         else -> null
     }
 }

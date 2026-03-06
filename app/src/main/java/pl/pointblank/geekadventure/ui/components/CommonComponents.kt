@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Star
@@ -55,6 +56,16 @@ fun UserStatsBar(stats: UserStats?) {
             value = "${stats?.chronocrystals ?: 0}",
             color = Color(0xFF00E5FF)
         )
+
+        stats?.lastDiceResult?.let { result ->
+            VerticalDivider(modifier = Modifier.height(24.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+            StatItem(
+                icon = Icons.Default.Casino,
+                label = "Rzut",
+                value = result.toString(),
+                color = Color(0xFFE91E63)
+            )
+        }
 
         if (stats?.isPremiumUser == true) {
             VerticalDivider(modifier = Modifier.height(24.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))

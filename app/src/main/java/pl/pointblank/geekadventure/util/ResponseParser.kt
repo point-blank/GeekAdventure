@@ -14,6 +14,11 @@ object ResponseParser {
         val stats: Map<String, Int> = emptyMap()
     )
 
+    data class DiceRequest(
+        val type: Int = 20,
+        val difficulty: Int? = null
+    )
+
     data class ParsedResponse(
         val cleanText: String,
         val chapterTitle: String? = null,
@@ -21,6 +26,7 @@ object ResponseParser {
         val imagePrompt: String? = null,
         val gameState: PlayerStats? = null,
         val loreUpdate: Map<String, String>? = null,
+        val diceRequest: DiceRequest? = null,
         val options: List<String> = emptyList()
     )
 
@@ -29,25 +35,36 @@ object ResponseParser {
     fun parse(rawText: String): ParsedResponse {
         var cleanText = rawText
         
-        // 1. Wyciąganie Nagłówka Rozdziału [Nagłówek: Numer i Tytuł Rozdziału]
-        val chapterRegex = Regex("\\[Nagłówek: ([^]]+)]")
+        // 1. Wyciąganie Nagłówka Rozdziału
+        val chapterRegex = Regex("\\[Nagłówka: ([^]]+)]")
         val chapterMatch = chapterRegex.find(cleanText)
         val chapterTitle = chapterMatch?.groupValues?.get(1)
         cleanText = cleanText.replace(chapterRegex, "")
 
-        // 2. Wyciąganie Mechaniki [Mechanika: ...]
+        // 2. Wyciąganie Mechaniki
         val mechanicsRegex = Regex("\\[Mechanika: ([^]]+)]")
         val mechanicsMatch = mechanicsRegex.find(cleanText)
         val mechanicsTag = mechanicsMatch?.groupValues?.get(1)
         cleanText = cleanText.replace(mechanicsRegex, "")
 
-        // 3. Wyciąganie IMAGE_PROMPT
+        // 3. Wyciąganie RZUTU [RZUT: d20, trudność: 15]
+        val diceRegex = Regex("\\[RZUT: d(\\d+)(?:,\\s*trudność:\\s*(\\d+))?]")
+        val diceMatch = diceRegex.find(cleanText)
+        val diceRequest = diceMatch?.let {
+            DiceRequest(
+                type = it.groupValues[1].toIntOrNull() ?: 20,
+                difficulty = it.groupValues[2].toIntOrNull()
+            )
+        }
+        cleanText = cleanText.replace(diceRegex, "")
+
+        // 4. Wyciąganie IMAGE_PROMPT
         val imageRegex = Regex("\\[IMAGE_PROMPT: ([^]]+)]")
         val imageMatch = imageRegex.find(cleanText)
         val imagePrompt = imageMatch?.groupValues?.get(1)
         cleanText = cleanText.replace(imageRegex, "")
 
-        // 4. Wyciąganie GAME_STATE (JSON)
+        // 5. Wyciąganie GAME_STATE (JSON)
         val gameStateRegex = Regex("\\[GAME_STATE: (\\{.*?\\})]")
         val gameStateMatch = gameStateRegex.find(cleanText)
         val gameStateJson = gameStateMatch?.groupValues?.get(1)
@@ -58,7 +75,7 @@ object ResponseParser {
         }
         cleanText = cleanText.replace(gameStateRegex, "")
 
-        // 5. Wyciąganie LORE_UPDATE
+        // 6. Wyciąganie LORE_UPDATE
         val loreRegex = Regex("\\[LORE_UPDATE: (\\{.*?\\})]")
         val loreMatch = loreRegex.find(cleanText)
         val loreJsonString = loreMatch?.groupValues?.get(1)
@@ -69,15 +86,12 @@ object ResponseParser {
         }
         cleanText = cleanText.replace(loreRegex, "")
 
-        // 6. Wyciąganie opcji A, B, C, D, E
-        // Regex szuka linii zaczynających się od spacji, gwiazdek, myślników, litery A-E, a potem separatora : . lub )
+        // 7. Wyciąganie opcji
         val optionRegex = Regex("(?m)^[\\s*-]*\\*?([A-E])\\*?[:.)] (.*)$")
         val options = mutableListOf<String>()
-        
         val matches = optionRegex.findAll(cleanText)
         matches.forEach { match ->
             val letter = match.groupValues[1]
-            // Usuwamy gwiazdki markdowna z treści opcji
             val content = match.groupValues[2].replace("*", "").trim()
             options.add("$letter: $content")
         }
@@ -89,6 +103,7 @@ object ResponseParser {
             imagePrompt = imagePrompt,
             gameState = gameState,
             loreUpdate = loreUpdate,
+            diceRequest = diceRequest,
             options = options
         )
     }

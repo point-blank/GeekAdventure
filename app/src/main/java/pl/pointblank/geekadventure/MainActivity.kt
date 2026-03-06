@@ -15,6 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import pl.pointblank.geekadventure.ui.screens.GameScreen
 import pl.pointblank.geekadventure.ui.screens.LobbyScreen
 import pl.pointblank.geekadventure.viewmodel.GameViewModel
+import pl.pointblank.geekadventure.viewmodel.DiceViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 class MainActivity : ComponentActivity() {
@@ -28,11 +29,11 @@ class MainActivity : ComponentActivity() {
             
             val navController = rememberNavController()
             val gameViewModel: GameViewModel = viewModel()
+            val diceViewModel: DiceViewModel = viewModel()
 
             NavHost(
                 navController = navController, 
                 startDestination = "lobby",
-                // GLOBALNE ANIMACJE PRZEJŚĆ
                 enterTransition = {
                     fadeIn(animationSpec = tween(500, easing = EaseInOutQuart)) +
                     scaleIn(initialScale = 0.92f, animationSpec = tween(500, easing = EaseInOutQuart))
@@ -63,6 +64,7 @@ class MainActivity : ComponentActivity() {
                 composable("game") {
                     GameScreen(
                         viewModel = gameViewModel,
+                        diceViewModel = diceViewModel, // Przekazanie DiceViewModel
                         isTablet = isTablet,
                         onBack = { navController.popBackStack() }
                     )

@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pl.pointblank.geekadventure.data.local.LoreEntry
@@ -30,17 +31,20 @@ import pl.pointblank.geekadventure.ui.theme.GameThemeData
 import pl.pointblank.geekadventure.util.ResponseParser
 import pl.pointblank.geekadventure.viewmodel.GameState
 import pl.pointblank.geekadventure.viewmodel.GameViewModel
+import pl.pointblank.geekadventure.viewmodel.DiceViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameScreen(
-    viewModel: GameViewModel, 
+    viewModel: GameViewModel,
+    diceViewModel: DiceViewModel,
     isTablet: Boolean,
     onBack: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val currentUiState by viewModel.uiState.collectAsState()
     val loreEntries by viewModel.loreEntries.collectAsState()
     val userStats by viewModel.userStats.collectAsState()
+    
     var userInput by remember { mutableStateOf("") }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -59,14 +63,14 @@ fun GameScreen(
         finishedListener = { if (showDamageFlash) showDamageFlash = false }
     )
 
-    val scenario = when (val state = uiState) {
+    val scenario = when (val state = currentUiState) {
         is GameState.Success -> state.scenario
         is GameState.Processing -> state.scenario
         else -> null
     }
 
-    val parsed = if (uiState is GameState.Success) {
-        val response = (uiState as GameState.Success).latestResponse
+    val parsed = if (currentUiState is GameState.Success) {
+        val response = (currentUiState as GameState.Success).latestResponse
         LaunchedEffect(response) {
             if (response.contains(Regex("\\[(HP|Zdrowie|Życie):\\s*-\\d+"))) {
                 showDamageFlash = true
@@ -76,6 +80,14 @@ fun GameScreen(
         }
         ResponseParser.parse(response)
     } else null
+
+    var showDiceOverlay by remember { mutableStateOf(false) }
+    LaunchedEffect(parsed?.diceRequest) {
+        parsed?.diceRequest?.let { request ->
+            showDiceOverlay = true
+            diceViewModel.rollDice(target = request.difficulty, diceType = request.type)
+        }
+    }
 
     val style = scenario?.visualStyle ?: ScenarioStyle.DEFAULT
     val baseThemeColor = scenario?.themeColor ?: MaterialTheme.colorScheme.primary
@@ -87,108 +99,8 @@ fun GameScreen(
 
     val animatedBgColor by animateColorAsState(targetValue = theme.backgroundColor, label = "bg")
 
-    if (isTablet) {
-        Scaffold(
-            containerColor = animatedBgColor,
-            topBar = {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Text(
-                            text = scenario?.title?.uppercase() ?: "GEEK ADVENTURE",
-                            fontFamily = theme.fontFamily,
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 3.sp,
-                            color = theme.primaryColor,
-                            fontSize = 20.sp
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = theme.contentColor)
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
-                )
-            }
-        ) { paddingValues ->
-            Box(modifier = Modifier.padding(paddingValues).fillMaxSize().vignette(Color.Black.copy(alpha = 0.8f))) {
-                Row(modifier = Modifier.fillMaxSize()) {
-                    AnimatedVisibility(
-                        visible = contentVisible,
-                        enter = slideInHorizontally(animationSpec = tween(600)) { -it } + fadeIn(),
-                        modifier = Modifier.weight(0.35f).fillMaxHeight()
-                    ) {
-                        Surface(
-                            color = theme.backgroundColor.copy(alpha = 0.5f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.1f))
-                        ) {
-                            ThematicDrawerContent(
-                                themeColor = theme.primaryColor,
-                                style = style,
-                                parsed = parsed,
-                                loreEntries = loreEntries,
-                                userStats = userStats,
-                                onUndo = { viewModel.undoLastAction() }
-                            )
-                        }
-                    }
-
-                    Column(modifier = Modifier.weight(0.65f).fillMaxHeight()) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            when (val state = uiState) {
-                                is GameState.Loading -> LoadingView(theme.primaryColor)
-                                is GameState.Processing -> ProcessingView(theme.primaryColor)
-                                is GameState.Error -> ErrorView(state.message) {
-                                    if (scenario != null) viewModel.initGame(scenario, resume = true) else onBack()
-                                }
-                                is GameState.Success -> {
-                                    ImmersiveGameContent(parsed = parsed!!, theme = theme)
-                                }
-                            }
-                        }
-
-                        AnimatedVisibility(
-                            visible = contentVisible && uiState is GameState.Success,
-                            enter = slideInVertically(animationSpec = tween(600)) { it } + fadeIn()
-                        ) {
-                            ImmersiveInteractionArea(
-                                parsed = parsed!!,
-                                theme = theme,
-                                userInput = userInput,
-                                onUserInputChange = { userInput = it },
-                                onSend = {
-                                    viewModel.sendPrompt(it)
-                                    userInput = ""
-                                }
-                            )
-                        }
-                    }
-                }
-                
-                if (damageAlpha > 0f) {
-                    Box(modifier = Modifier.fillMaxSize().background(Color.Red.copy(alpha = damageAlpha)))
-                }
-            }
-        }
-    } else {
-        ModalNavigationDrawer(
-            drawerState = drawerState,
-            drawerContent = {
-                ThematicDrawerContent(
-                    themeColor = theme.primaryColor,
-                    style = style,
-                    parsed = parsed,
-                    loreEntries = loreEntries,
-                    userStats = userStats,
-                    onUndo = {
-                        scope.launch {
-                            drawerState.close()
-                            viewModel.undoLastAction()
-                        }
-                    }
-                )
-            }
-        ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (isTablet) {
             Scaffold(
                 containerColor = animatedBgColor,
                 topBar = {
@@ -197,9 +109,10 @@ fun GameScreen(
                             Text(
                                 text = scenario?.title?.uppercase() ?: "GEEK ADVENTURE",
                                 fontFamily = theme.fontFamily,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 2.sp,
-                                color = theme.primaryColor
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 3.sp,
+                                color = theme.primaryColor,
+                                fontSize = 20.sp
                             )
                         },
                         navigationIcon = {
@@ -207,52 +120,173 @@ fun GameScreen(
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = theme.contentColor)
                             }
                         },
-                        actions = {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                Icon(Icons.Default.Menu, contentDescription = "Menu", tint = theme.contentColor)
-                            }
-                        },
                         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
                     )
                 }
             ) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues).fillMaxSize().vignette(Color.Black.copy(alpha = 0.8f))) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            when (val state = uiState) {
-                                is GameState.Loading -> LoadingView(theme.primaryColor)
-                                is GameState.Processing -> ProcessingView(theme.primaryColor)
-                                is GameState.Error -> ErrorView(state.message) {
-                                    if (scenario != null) viewModel.initGame(scenario, resume = true) else onBack()
-                                }
-                                is GameState.Success -> {
-                                    ImmersiveGameContent(parsed = parsed!!, theme = theme)
-                                }
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        AnimatedVisibility(
+                            visible = contentVisible,
+                            enter = slideInHorizontally(animationSpec = tween(600)) { -it } + fadeIn(),
+                            modifier = Modifier.weight(0.35f).fillMaxHeight()
+                        ) {
+                            Surface(
+                                color = theme.backgroundColor.copy(alpha = 0.5f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, theme.primaryColor.copy(alpha = 0.1f))
+                            ) {
+                                ThematicDrawerContent(
+                                    themeColor = theme.primaryColor,
+                                    style = style,
+                                    parsed = parsed,
+                                    loreEntries = loreEntries,
+                                    userStats = userStats,
+                                    onUndo = { viewModel.undoLastAction() }
+                                )
                             }
                         }
 
-                        AnimatedVisibility(
-                            visible = contentVisible && uiState is GameState.Success,
-                            enter = slideInVertically(animationSpec = tween(600, easing = LinearOutSlowInEasing)) { it } + fadeIn()
-                        ) {
-                            ImmersiveInteractionArea(
-                                parsed = parsed!!,
-                                theme = theme,
-                                userInput = userInput,
-                                onUserInputChange = { userInput = it },
-                                onSend = {
-                                    viewModel.sendPrompt(it)
-                                    userInput = ""
+                        Column(modifier = Modifier.weight(0.65f).fillMaxHeight()) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                when (val state = currentUiState) {
+                                    is GameState.Loading -> LoadingView(theme.primaryColor)
+                                    is GameState.Processing -> ProcessingView(theme.primaryColor)
+                                    is GameState.Error -> ErrorView(state.message) {
+                                        if (scenario != null) viewModel.initGame(scenario, resume = true) else onBack()
+                                    }
+                                    is GameState.Success -> {
+                                        ImmersiveGameContent(parsed = parsed!!, theme = theme)
+                                    }
                                 }
-                            )
+                            }
+
+                            AnimatedVisibility(
+                                visible = contentVisible && currentUiState is GameState.Success,
+                                enter = slideInVertically(animationSpec = tween(600)) { it } + fadeIn()
+                            ) {
+                                if (parsed != null) {
+                                    ImmersiveInteractionArea(
+                                        parsed = parsed,
+                                        theme = theme,
+                                        userInput = userInput,
+                                        onUserInputChange = { userInput = it },
+                                        onSend = {
+                                            viewModel.sendPrompt(it)
+                                            userInput = ""
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
-
+                    
                     if (damageAlpha > 0f) {
                         Box(modifier = Modifier.fillMaxSize().background(Color.Red.copy(alpha = damageAlpha)))
                     }
                 }
             }
+        } else {
+            ModalNavigationDrawer(
+                drawerState = drawerState,
+                drawerContent = {
+                    ThematicDrawerContent(
+                        themeColor = theme.primaryColor,
+                        style = style,
+                        parsed = parsed,
+                        loreEntries = loreEntries,
+                        userStats = userStats,
+                        onUndo = {
+                            scope.launch {
+                                drawerState.close()
+                                viewModel.undoLastAction()
+                            }
+                        }
+                    )
+                }
+            ) {
+                Scaffold(
+                    containerColor = animatedBgColor,
+                    topBar = {
+                        CenterAlignedTopAppBar(
+                            title = {
+                                Text(
+                                    text = scenario?.title?.uppercase() ?: "GEEK ADVENTURE",
+                                    fontFamily = theme.fontFamily,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 2.sp,
+                                    color = theme.primaryColor
+                                )
+                            },
+                            navigationIcon = {
+                                IconButton(onClick = onBack) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = theme.contentColor)
+                                }
+                            },
+                            actions = {
+                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                    Icon(Icons.Default.Menu, contentDescription = "Menu", tint = theme.contentColor)
+                                }
+                            },
+                            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                        )
+                    }
+                ) { paddingValues ->
+                    Box(modifier = Modifier.padding(paddingValues).fillMaxSize().vignette(Color.Black.copy(alpha = 0.8f))) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                when (val state = currentUiState) {
+                                    is GameState.Loading -> LoadingView(theme.primaryColor)
+                                    is GameState.Processing -> ProcessingView(theme.primaryColor)
+                                    is GameState.Error -> ErrorView(state.message) {
+                                        if (scenario != null) viewModel.initGame(scenario, resume = true) else onBack()
+                                    }
+                                    is GameState.Success -> {
+                                        ImmersiveGameContent(parsed = parsed!!, theme = theme)
+                                    }
+                                }
+                            }
+
+                            AnimatedVisibility(
+                                visible = contentVisible && currentUiState is GameState.Success,
+                                enter = slideInVertically(animationSpec = tween(600, easing = LinearOutSlowInEasing)) { it } + fadeIn()
+                            ) {
+                                if (parsed != null) {
+                                    ImmersiveInteractionArea(
+                                        parsed = parsed,
+                                        theme = theme,
+                                        userInput = userInput,
+                                        onUserInputChange = { userInput = it },
+                                        onSend = {
+                                            viewModel.sendPrompt(it)
+                                            userInput = ""
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        if (damageAlpha > 0f) {
+                            Box(modifier = Modifier.fillMaxSize().background(Color.Red.copy(alpha = damageAlpha)))
+                        }
+                    }
+                }
+            }
+        }
+
+        if (showDiceOverlay) {
+            DiceRollOverlay(
+                viewModel = diceViewModel,
+                themeColor = theme.primaryColor,
+                onResultConfirmed = { result ->
+                    showDiceOverlay = false
+                    viewModel.viewModelScope.launch {
+                        val stats = userStats ?: UserStats()
+                        viewModel.chatDao.insertUserStats(stats.copy(lastDiceResult = result))
+                    }
+                    viewModel.sendPrompt("RZUT KOSTKĄ: Wynik to $result. Kontynuuj historię biorąc ten wynik pod uwagę.", saveToHistory = true)
+                    diceViewModel.reset()
+                }
+            )
         }
     }
 }
@@ -288,8 +322,6 @@ fun ImmersiveGameContent(
                 modifier = Modifier.padding(bottom = 24.dp).then(textModifier)
             )
         }
-
-        // USUNIĘTO SEKCJE Z OBRAZKIEM AI / SHIMMEREM
 
         Box(modifier = textModifier) {
             TypewriterText(
@@ -342,11 +374,17 @@ fun ImmersiveInteractionArea(
             .padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(modifier = Modifier.widthIn(max = 850.dp)) {
+        Column(
+            modifier = Modifier.widthIn(max = 850.dp)
+        ) {
             val options = parsed.options.takeIf { it.isNotEmpty() } ?: listOf("A: Kontynuuj")
             
+            // POWRÓT DO UKŁADU SIATKI (2 KOLUMNY) DLA KRÓTKICH PRZYCISKÓW
             options.chunked(2).forEach { rowOptions ->
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     rowOptions.forEach { option ->
                         var visible by remember { mutableStateOf(false) }
                         LaunchedEffect(option) {
@@ -366,6 +404,10 @@ fun ImmersiveInteractionArea(
                                 onClick = { onSend(option) }
                             )
                         }
+                    }
+                    // Jeśli w rzędzie jest tylko jeden przycisk, dodaj pustą przestrzeń
+                    if (rowOptions.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }

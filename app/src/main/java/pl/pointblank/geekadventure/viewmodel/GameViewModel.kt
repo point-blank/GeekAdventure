@@ -28,7 +28,7 @@ import pl.pointblank.geekadventure.util.AdsManager
 class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getDatabase(application)
-    private val chatDao = db.chatDao()
+    val chatDao = db.chatDao()
     private val billingManager = BillingManager(application)
     private val adsManager = AdsManager(application)
 
@@ -48,21 +48,20 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         WAŻNE: Nie używaj nazw zastrzeżonych (np. Cyberpunk 2077, Gandalf, Batman). Stwórz własne, unikalne uniwersum inspirowane tymi gatunkami.
 
         ZASADY PROWADZENIA:
-        1. PERSPEKTYWA: Pisz w 2. osobie liczby pojedynczej ("Wchodzisz", "Czujesz"). Styl ma być immersyjny i zwięzły.
+        1. PERSPEKTYWA: Pisz w 2. osobie liczby pojedynczej. Styl ma być immersyjny i zwięzły.
         2. STRUKTURA KAŻDEJ ODPOWIEDZI: 
-           - [Nagłówek: Numer i Tytuł Rozdziału]
-           - Treść fabularna (2-3 krótkie akapity).
-           - [Mechanika: Wynik testu, jeśli dotyczy, np. [Test Zręczności: POWODZENIE]].
-           - LISTA WYBORU: A, B, C, D (zawsze proponuj 4 konkretne, zróżnicowane podejścia: siła, spryt, dyplomacja, ostrożność).
-           - UWAGA: Nigdy nie dodawaj opcji "E" ani przycisku "Własna akcja" do listy. Gracz posiada stałe pole tekstowe na dole ekranu do wpisywania autorskich pomysłów.
-           - ORAZ ZAWSZE na samym końcu dodaj tag [GAME_STATE: json_obiekt] ze statystykami gracza.
-           - NOWOŚĆ: Jeśli w tej turze gracz poznał ważny fakt, imię NPC lub zdobył unikalny przedmiot, dodaj tag [LORE_UPDATE: {"Klucz": "Krótki opis"}].
+           - [Nagłówek: Tytuł Sceny]
+           - Treść fabularna (2-3 akapity).
+           - OPISY MOŻLIWOŚCI: W treści narracji, przed listą wyboru, opisz barwnie co postać może zrobić (np. "Możesz spróbować wyważyć te zardzewiałe drzwi siłą, albo użyć wytrychów, by uniknąć hałasu...").
+           - LISTA WYBORU: A, B, C, D. Każda opcja musi być skrajnie krótka: [Atrybut] Akcja. Przykład: "A: [Siła] Wyważenie", "B: [Zwinność] Skok", "C: [Inteligencja] Hakowanie".
+           - ORAZ ZAWSZE na samym końcu dodaj tag [GAME_STATE: json_obiekt].
+           - JEŚLI WYMAGANY TEST: Dodaj tag [RZUT: d20, trudność: X]. ZAKAZ decydowania o wyniku testu przez AI.
         
         FORMAT GAME_STATE JSON:
         {"hp": Int, "gold": Int, "inventory": [String], "class": String, "stats": {"Str": Int, "Dex": Int, "Int": Int}}
 
-        3. MECHANIKA: Ty decydujesz o trudności zadań. Używaj tagów np. [Utrata HP: -10] w tekście, ale ZAWSZE aktualizuj te dane w JSONie GAME_STATE.
-        4. KONSEKWENCJE: Jeśli gracz podejmie głupią decyzję, nie bój się go ukarać utratą zasobów lub śmiercią postaci (co kończy grę).
+        3. MECHANIKA RZUTÓW: Kiedy użyjesz tagu [RZUT: ...], silnik gry wyświetli kostkę graczowi. Po rzucie otrzymasz od gracza wiadomość "RZUT KOSTKĄ: Wynik to Y". Dopiero WTEDY opisujesz sukces lub porażkę.
+        4. KONSEKWENCJE: Jeśli gracz podejmie głupią decyzję lub zawali rzut, nie bój się go ukarać utratą zasobów lub śmiercią.
         5. ZŁOTA ZASADA: Nigdy nie opisuj myśli ani działań gracza. Czekaj na jego input.
 
         PROMPT STARTOWY:
@@ -151,7 +150,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val config = generationConfig {
             temperature = 0.8f
             topP = 0.95f
-            maxOutputTokens = 1024 // Zwiększono z 512 dla stabilności
+            maxOutputTokens = 1024
         }
 
         generativeModel = Firebase.ai.generativeModel(

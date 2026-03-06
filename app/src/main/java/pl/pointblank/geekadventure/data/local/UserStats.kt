@@ -9,5 +9,6 @@ data class UserStats(
     val actionPoints: Int = 10,
     val lastRefillTime: Long = System.currentTimeMillis(),
     val chronocrystals: Int = 3, // Startowe kryształy do cofania czasu
-    val isPremiumUser: Boolean = false
+    val isPremiumUser: Boolean = false,
+    val lastDiceResult: Int? = null // Nowe pole na ostatni wynik rzutu
 )
