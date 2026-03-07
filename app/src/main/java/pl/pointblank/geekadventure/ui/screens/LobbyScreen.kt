@@ -1,5 +1,6 @@
 package pl.pointblank.geekadventure.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,6 +10,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
@@ -17,11 +19,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import pl.pointblank.geekadventure.data.ScenarioRepository
 import pl.pointblank.geekadventure.model.Scenario
 import pl.pointblank.geekadventure.model.ScenarioStyle
@@ -39,6 +49,7 @@ fun LobbyScreen(
     isTablet: Boolean,
     onScenarioSelected: (Scenario, Boolean, Boolean) -> Unit
 ) {
+
     var selectedScenario by remember { mutableStateOf<Scenario?>(null) }
     var showDialog by remember { mutableStateOf(false) }
     var showShop by remember { mutableStateOf(false) }
@@ -58,27 +69,60 @@ fun LobbyScreen(
     Scaffold(
         containerColor = Color(0xFF050505), // CIEMNE TŁO
         topBar = {
-            Column(modifier = Modifier.background(Color(0xFF0D0D0D))) {
-                CenterAlignedTopAppBar(
-                    title = { 
-                        Text(
-                            "GEEK ADVENTURE",
-                            fontWeight = FontWeight.Black,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontFamily = OrbitronFont,
-                            letterSpacing = 4.sp,
-                            color = Color.White
-                        ) 
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = Color.Transparent,
-                        titleContentColor = Color.White
+            Column(
+                modifier = Modifier
+                    .background(Color(0xFF050505)) // Ciemne tło
+                    .statusBarsPadding() // FIX: Odsuwa cały nagłówek pod systemowy zegar i baterię!
+            ) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "GEEK ADVENTURE",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    textAlign = TextAlign.Center,
+                    fontFamily = OrbitronFont,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 32.sp, // Lekko powiększony
+                    letterSpacing = 6.sp, // Szerszy rozstaw liter wygląda bardziej kinowo
+                    style = androidx.compose.ui.text.TextStyle(
+                        // Pionowy gradient daje efekt "wypukłego metalu"
+                        brush = Brush.verticalGradient(
+                            colors = listOf(Color(0xFFFFF176), Color(0xFFFF8F00))
+                        ),
+                        shadow = Shadow(
+                            color = Color(0xFFFF8F00), // Mocny pomarańczowy glow
+                            offset = Offset(0f, 0f), // Glow ze środka, a nie rzucanie cienia
+                            blurRadius = 30f // Zwiększony promień rozmycia - teraz będzie "świecić"
+                        )
                     )
                 )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Box(modifier = Modifier.clickable { showShop = true }) {
                     UserStatsBar(userStats)
                 }
-                HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Dodajemy holograficzną, neonową linię oddzielającą HUD od listy gier!
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color(0xFF00E5FF).copy(alpha = 0.6f), // Cyan
+                                    Color(0xFFFF00FF).copy(alpha = 0.6f), // Magenta
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
             }
         }
     ) { paddingValues ->
@@ -220,112 +264,208 @@ fun LobbyDialog(
     val themeData = ThemeEngine.getTheme(style, scenario.themeColor, scenario.secondaryColor)
     val font = themeData.fontFamily
 
+    val context = LocalContext.current
+
+    // Definiujemy ścięty kształt specjalnie dla Cyberpunka
+    val cyberpunkDialogShape = GenericShape { size, _ ->
+        moveTo(0f, 0f)
+        lineTo(size.width - 40f, 0f)
+        lineTo(size.width, 40f)
+        lineTo(size.width, size.height)
+        lineTo(40f, size.height)
+        lineTo(0f, size.height - 40f)
+        close()
+    }
+
+    val dialogShape = if (style == ScenarioStyle.CYBERPUNK) cyberpunkDialogShape else RoundedCornerShape(16.dp)
+
     val dialogBg = when {
         scenario.isForKids -> Color.White
         style == ScenarioStyle.CYBERPUNK -> Color(0xFF0D0D0D)
-        style == ScenarioStyle.FANTASY -> Color(0xFFF5E6D3)
+        style == ScenarioStyle.FANTASY -> Color(0xFF2B1B17) // Zmienione na ciemniejsze, epickie tło
         style == ScenarioStyle.HORROR -> Color(0xFF050505)
-        style == ScenarioStyle.PIRATES -> Color(0xFF004D40)
-        style == ScenarioStyle.WESTERN -> Color(0xFFD2B48C)
-        style == ScenarioStyle.SUPERHERO -> Color(0xFFE53935)
-        else -> Color(0xFF1A1A1A) // CIEMNY DOMYŚLNY
+        style == ScenarioStyle.PIRATES -> Color(0xFF002214) // Bardzo ciemna zieleń
+        style == ScenarioStyle.WESTERN -> Color(0xFF3E2723)
+        style == ScenarioStyle.SUPERHERO -> Color(0xFF1A1A1A)
+        else -> Color(0xFF1A1A1A)
     }
-    
+
     val dialogText = when {
         scenario.isForKids -> Color.Black
-        style == ScenarioStyle.FANTASY || style == ScenarioStyle.WESTERN -> Color(0xFF2B1B17)
-        style == ScenarioStyle.SUPERHERO -> Color.Black
-        else -> Color.White
+        else -> Color.White.copy(alpha = 0.9f)
     }
 
     val dialogAccent = if (isLocked) Color.Gray else when {
         scenario.isForKids -> Color(0xFFFF4081)
-        style == ScenarioStyle.FANTASY -> Color(0xFF8B4513)
-        style == ScenarioStyle.WESTERN -> Color(0xFF5D4037)
+        style == ScenarioStyle.FANTASY -> Color(0xFFE5D5A0) // Złoty
+        style == ScenarioStyle.WESTERN -> Color(0xFFFFCC80)
         style == ScenarioStyle.SUPERHERO -> Color.Yellow
-        style == ScenarioStyle.PIRATES -> Color(0xFFC2B280)
+        style == ScenarioStyle.PIRATES -> Color(0xFFC2B280) // Stare złoto
         else -> scenario.themeColor
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = dialogBg,
-        shape = if (style == ScenarioStyle.CYBERPUNK) RoundedCornerShape(0.dp) else RoundedCornerShape(28.dp),
-        title = { 
-            Text(
-                if (isLocked) "SCENARIUSZ ZABLOKOWANY" else scenario.title.uppercase(), 
-                color = dialogAccent, 
-                fontWeight = FontWeight.Black,
-                fontFamily = font,
-                letterSpacing = if (style == ScenarioStyle.CYBERPUNK) 2.sp else 0.sp
-            ) 
-        },
-        text = {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = dialogShape,
+            color = dialogBg,
+            border = BorderStroke(2.dp, dialogAccent.copy(alpha = 0.5f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(16.dp, dialogShape, spotColor = dialogAccent)
+        ) {
             Column {
-                if (isLocked) {
-                    Text(
-                        "Ten scenariusz jest dostępny tylko dla subskrybentów Geek Master. Wesprzyj nas i graj bez limitów!",
-                        color = dialogText,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = font,
-                        fontSize = if (scenario.isForKids) 18.sp else 14.sp
-                    )
-                } else {
-                    Text(
-                        text = scenario.description, 
-                        color = dialogText, 
-                        fontFamily = font,
-                        fontSize = if (scenario.isForKids) 18.sp else 14.sp
-                    )
-                }
-                Spacer(modifier = Modifier.height(24.dp))
-                HorizontalDivider(color = dialogAccent.copy(alpha = 0.3f))
-            }
-        },
-        confirmButton = {
-            if (isLocked) {
-                val context = LocalContext.current
-                Button(
-                    onClick = { 
-                        context.findActivity()?.let { activity ->
-                            viewModel.buyProduct(activity, pl.pointblank.geekadventure.util.BillingManager.PREMIUM_SUB) 
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD700), contentColor = Color.Black),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("Zasubskrybuj", fontFamily = OrbitronFont)
-                }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (hasSave) {
-                        TextButton(
-                            onClick = { onStart(scenario, true) },
-                            colors = ButtonDefaults.textButtonColors(contentColor = dialogAccent)
-                        ) {
-                            Text("Kontynuuj", fontFamily = font, fontSize = if (scenario.isForKids) 18.sp else 14.sp)
-                        }
-                    }
-                    Button(
-                        onClick = { onStart(scenario, false) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = dialogAccent, 
-                            contentColor = if (style == ScenarioStyle.SUPERHERO || scenario.isForKids) Color.White else Color.White
-                        ),
-                        shape = if (style == ScenarioStyle.CYBERPUNK) RoundedCornerShape(0.dp) else RoundedCornerShape(12.dp)
+                // SEKCJA 1: Obrazkowy nagłówek z gradientem (Mission Briefing Header)
+                if (scenario.backgroundResId != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp)
                     ) {
-                        Text(if (hasSave) "Nowa gra" else "Rozpocznij", fontFamily = font, fontSize = if (scenario.isForKids) 18.sp else 14.sp)
+                        androidx.compose.foundation.Image(
+                            painter = painterResource(id = scenario.backgroundResId),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        // Gradient płynnie łączący obrazek z tłem dialogu
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(Color.Transparent, dialogBg),
+                                        startY = 0f,
+                                        endY = Float.POSITIVE_INFINITY
+                                    )
+                                )
+                        )
+
+                        // Opcjonalnie: ikona scenariusza pośrodku
+                        if (scenario.iconRes != null) {
+                            Icon(
+                                painter = painterResource(id = scenario.iconRes),
+                                contentDescription = null,
+                                tint = dialogAccent.copy(alpha = 0.8f),
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .align(Alignment.Center)
+                            )
+                        }
+                    }
+                } else {
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+
+                // SEKCJA 2: Treść dialogu
+                Column(
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = if (isLocked) "ZABLOKOWANE" else scenario.title.uppercase(),
+                        color = dialogAccent,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = font,
+                        fontSize = 22.sp,
+                        textAlign = TextAlign.Center,
+                        letterSpacing = 2.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Mały ozdobny divider
+                    Box(
+                        modifier = Modifier
+                            .width(60.dp)
+                            .height(2.dp)
+                            .background(dialogAccent.copy(alpha = 0.5f))
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    if (isLocked) {
+                        Text(
+                            text = "Ten scenariusz wymaga statusu Geek Master. Odblokuj pełen potencjał i graj bez limitów!",
+                            color = dialogText,
+                            fontFamily = font,
+                            textAlign = TextAlign.Center,
+                            fontSize = 15.sp
+                        )
+                    } else {
+                        Text(
+                            text = scenario.description,
+                            color = dialogText,
+                            fontFamily = font,
+                            textAlign = TextAlign.Center,
+                            fontSize = 15.sp,
+                            lineHeight = 22.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    // SEKCJA 3: Gamingowe Przyciski
+                    if (isLocked) {
+                        Button(
+                            onClick = {
+                                context.findActivity()?.let { activity ->
+                                    viewModel.buyProduct(activity, pl.pointblank.geekadventure.util.BillingManager.PREMIUM_SUB)
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD700), contentColor = Color.Black),
+                            shape = dialogShape, // Używamy tego samego kształtu co okno!
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                        ) {
+                            Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("ZDOBĄDŹ PREMIUM", fontFamily = OrbitronFont, fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        // Przyciski akcji ułożone w kolumnę dla lepszej klikalności
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            if (hasSave) {
+                                Button(
+                                    onClick = { onStart(scenario, true) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = dialogAccent, contentColor = dialogBg),
+                                    shape = dialogShape,
+                                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                                ) {
+                                    Text("KONTYNUUJ PRZYGODĘ", fontFamily = font, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                }
+
+                                OutlinedButton(
+                                    onClick = { onStart(scenario, false) },
+                                    border = BorderStroke(1.dp, dialogAccent),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = dialogAccent),
+                                    shape = dialogShape,
+                                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                                ) {
+                                    Text("NOWA GRA", fontFamily = font, fontWeight = FontWeight.Bold)
+                                }
+                            } else {
+                                Button(
+                                    onClick = { onStart(scenario, false) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = dialogAccent, contentColor = dialogBg),
+                                    shape = dialogShape,
+                                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                                ) {
+                                    Text("ROZPOCZNIJ", fontFamily = font, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                }
+                            }
+
+                            TextButton(
+                                onClick = onDismiss,
+                                colors = ButtonDefaults.textButtonColors(contentColor = dialogText.copy(alpha = 0.5f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("ANULUJ", fontFamily = font)
+                            }
+                        }
                     }
                 }
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                colors = ButtonDefaults.textButtonColors(contentColor = if (scenario.isForKids) Color.Black.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.6f))
-            ) {
-                Text("Anuluj", fontFamily = font, fontSize = if (scenario.isForKids) 18.sp else 14.sp)
             }
         }
-    )
+    }
 }

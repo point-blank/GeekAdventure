@@ -15,7 +15,9 @@ object ScenarioRepository {
             secondaryColor = Color(0xFFFF00FF),
             basePrompt = "Świat Cyberpunka w Neo-Katowicach: technologia, neony, korporacje i śląski klimat.",
             visualStyle = ScenarioStyle.CYBERPUNK,
-            iconRes = R.drawable.ic_spodek
+            iconRes = R.drawable.ic_spodek,
+            backgroundResId = R.drawable.bg_neo_katowice,
+            foregroundResId = R.drawable.fg_neo_katowice_drone
         ),
         Scenario(
             id = "fantasy_realm",
@@ -25,7 +27,9 @@ object ScenarioRepository {
             secondaryColor = Color(0xFFFFD700),
             basePrompt = "Świat High Fantasy: magia, miecze, zamki i smoki.",
             visualStyle = ScenarioStyle.FANTASY,
-            iconRes = R.drawable.ic_dragon
+            iconRes = R.drawable.ic_dragon,
+            backgroundResId = R.drawable.bg_fantasy,
+            foregroundResId = R.drawable.fg_fantasy_sword
         ),
         Scenario(
             id = "cursed_pearl",
@@ -35,7 +39,9 @@ object ScenarioRepository {
             secondaryColor = Color(0xFFC2B280),
             basePrompt = "Świat Piratów: morze, statki, skarby i pirackie legendy.",
             visualStyle = ScenarioStyle.PIRATES,
-            iconRes = R.drawable.ic_anchor
+            iconRes = R.drawable.ic_anchor,
+            backgroundResId = R.drawable.bg_pirates_back,
+            foregroundResId = R.drawable.fg_pirates_wheel
         ),
         Scenario(
             id = "dnd_classic",
@@ -46,7 +52,9 @@ object ScenarioRepository {
             basePrompt = "Klasyczne Dungeons & Dragons. Rozpocznij od wyboru klasy: Wojownik, Mag, Łotr, Kapłan. Używaj zasad d20.",
             visualStyle = ScenarioStyle.FANTASY,
             isPremium = true,
-            iconRes = R.drawable.ic_dragon
+            iconRes = R.drawable.ic_dragon,
+            backgroundResId = R.drawable.bg_dnd,
+            foregroundResId = R.drawable.fg_dnd_dice
         ),
         Scenario(
             id = "arkham_horror",
@@ -54,8 +62,10 @@ object ScenarioRepository {
             description = "Horror Lovecraftowski. Tajemnicze zniknięcia, kulty i przedwieczni bogowie.",
             themeColor = Color(0xFF2F4F4F),
             secondaryColor = Color(0xFF000000),
+            isPremium = true,
             basePrompt = "Świat Lovecraftowski horror: mrok, obłęd, kultyści i istoty spoza czasu.",
-            visualStyle = ScenarioStyle.HORROR
+            visualStyle = ScenarioStyle.HORROR,
+            backgroundResId = R.drawable.bg_arkham
         ),
         Scenario(
             id = "superhero_league",
@@ -63,8 +73,10 @@ object ScenarioRepository {
             description = "Bądź bohaterem z supermocami i chroń miasto przed superzłoczyńcami.",
             themeColor = Color(0xFFE53935),
             secondaryColor = Color(0xFF0D47A1),
+            isPremium = true,
             basePrompt = "Świat Superbohaterów: moce, kostiumy, tajne tożsamości i epickie bitwy o miasto.",
-            visualStyle = ScenarioStyle.SUPERHERO
+            visualStyle = ScenarioStyle.SUPERHERO,
+            backgroundResId = R.drawable.bg_superhero,
         ),
         
         // SEKCJA DLA DZIECI
@@ -77,7 +89,8 @@ object ScenarioRepository {
             basePrompt = "PRZYGODA DLA DZIECI: Świat dinozaurów. Język prosty, edukacyjny, zero przemocy. Dinozaury są przyjazne.",
             visualStyle = ScenarioStyle.DEFAULT,
             isForKids = true,
-            iconRes = R.drawable.ic_dino
+            iconRes = R.drawable.ic_dino,
+            backgroundResId = R.drawable.bg_dino,
         ),
         Scenario(
             id = "princess_kingdom",
@@ -89,7 +102,8 @@ object ScenarioRepository {
             visualStyle = ScenarioStyle.FANTASY,
             isPremium = true,
             isForKids = true,
-            iconRes = R.drawable.ic_crown
+            iconRes = R.drawable.ic_crown,
+            backgroundResId = R.drawable.bg_princess,
         ),
         Scenario(
             id = "sea_adventure",
@@ -101,7 +115,8 @@ object ScenarioRepository {
             visualStyle = ScenarioStyle.PIRATES,
             isPremium = true,
             isForKids = true,
-            iconRes = R.drawable.ic_anchor
+            iconRes = R.drawable.ic_anchor,
+            backgroundResId = R.drawable.bg_sea,
         ),
         Scenario(
             id = "cat_land",
@@ -113,7 +128,8 @@ object ScenarioRepository {
             visualStyle = ScenarioStyle.DEFAULT,
             isPremium = true,
             isForKids = true,
-            iconRes = R.drawable.ic_paw
+            iconRes = R.drawable.ic_paw,
+            backgroundResId = R.drawable.bg_cats,
         )
     )
 }

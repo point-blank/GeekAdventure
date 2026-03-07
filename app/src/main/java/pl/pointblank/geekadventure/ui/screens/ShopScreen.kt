@@ -1,7 +1,5 @@
 package pl.pointblank.geekadventure.ui.screens
 
-import android.app.Activity
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import pl.pointblank.geekadventure.util.BillingManager
 import pl.pointblank.geekadventure.viewmodel.GameViewModel
 import pl.pointblank.geekadventure.ui.components.findActivity
@@ -26,19 +25,62 @@ import pl.pointblank.geekadventure.ui.components.findActivity
 fun ShopDialog(viewModel: GameViewModel, onDismiss: () -> Unit) {
     val products by viewModel.products.collectAsState()
     val isAdLoaded by viewModel.isAdLoaded.collectAsState()
+    val userStats by viewModel.userStats.collectAsState()
     val context = LocalContext.current
+
+    // Stan przechowujący tekst odliczania
+    var timerText by remember { mutableStateOf("") }
+
+    // Efekt odliczania
+    LaunchedEffect(userStats) {
+        while (true) {
+            val stats = userStats ?: break
+            if (stats.actionPoints >= 10) {
+                timerText = "PEŁNA"
+                break
+            }
+
+            val now = System.currentTimeMillis()
+            val nextRefillTime = stats.lastRefillTime + (30 * 60 * 1000) // 30 minut
+            val remainingMillis = nextRefillTime - now
+
+            if (remainingMillis <= 0) {
+                // Jeśli czas minął, wymuś odświeżenie energii w ViewModelu
+                viewModel.onResume()
+                timerText = "00:00"
+            } else {
+                val minutes = (remainingMillis / 1000) / 60
+                val seconds = (remainingMillis / 1000) % 60
+                timerText = String.format("%02d:%02d", minutes, seconds)
+            }
+            delay(1000) // Odczekaj sekundę
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFF1A1A1A),
         shape = RoundedCornerShape(24.dp),
         title = {
-            Text(
-                "SKLEP GEEKA",
-                color = Color(0xFFFFD700),
-                fontWeight = FontWeight.Black,
-                fontSize = 24.sp
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "SKLEP GEEKA",
+                    color = Color(0xFFFFD700),
+                    fontWeight = FontWeight.Black,
+                    fontSize = 24.sp
+                )
+                // Mały wskaźnik energii w tytule
+                Text(
+                    "${userStats?.actionPoints ?: 0}/10 ⚡",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 14.sp,
+                    fontFamily = pl.pointblank.geekadventure.ui.theme.OrbitronFont
+                )
+            }
         },
         text = {
             LazyColumn(
@@ -46,13 +88,25 @@ fun ShopDialog(viewModel: GameViewModel, onDismiss: () -> Unit) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 item {
-                    Text("DARMOWE ZASOBY", style = MaterialTheme.typography.labelLarge, color = Color.Gray)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("DARMOWE ZASOBY", style = MaterialTheme.typography.labelLarge, color = Color.Gray)
+                        if (timerText.isNotEmpty() && timerText != "PEŁNA") {
+                            Text(
+                                "Następna: $timerText",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF00E5FF)
+                            )
+                        }
+                    }
                 }
                 item {
                     ShopItemRow(
                         icon = Icons.Default.PlayCircle,
                         title = "Obejrzyj reklamę",
-                        description = "+1 pkt Energii",
+                        description = "+3 pkt Energii",
                         price = "ZA DARMO",
                         color = Color(0xFF4CAF50),
                         enabled = isAdLoaded,

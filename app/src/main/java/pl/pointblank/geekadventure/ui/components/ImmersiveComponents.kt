@@ -35,58 +35,49 @@ import pl.pointblank.geekadventure.ui.theme.GameThemeData
 fun TypewriterText(
     text: String,
     theme: GameThemeData,
-    speedMillis: Long = 10,
     isLarge: Boolean = false,
-    onComplete: () -> Unit = {}
+    onAnimationComplete: () -> Unit = {}
 ) {
-    var displayedText by remember { mutableStateOf("") }
-    
-    LaunchedEffect(text) {
-        displayedText = ""
-        text.forEachIndexed { _, char ->
-            displayedText += char
-            if (char !in listOf(' ', '.', ',')) {
-                delay(speedMillis)
-            } else {
-                delay(speedMillis / 2)
-            }
-        }
-        onComplete()
-    }
+    // Stan określający, ile znaków aktualnie wyświetlamy
+    var textIndex by remember { mutableIntStateOf(0) }
+    // Stan pozwalający użytkownikowi na natychmiastowe pokazanie całego tekstu (skip)
+    var skipAnimation by remember { mutableStateOf(false) }
 
-    val annotatedString = buildAnnotatedString {
-        val raw = displayedText
-        var cursor = 0
-        val boldRegex = Regex("\\*\\*(.*?)\\*\\*")
-        val matches = boldRegex.findAll(raw)
-        
-        matches.forEach { match ->
-            append(raw.substring(cursor, match.range.first))
-            withStyle(SpanStyle(
-                fontWeight = FontWeight.Bold, 
-                color = theme.primaryColor,
-                fontFamily = theme.fontFamily
-            )) {
-                append(match.groupValues[1])
+    // Efekt "pisania"
+    LaunchedEffect(text, skipAnimation) {
+        if (skipAnimation) {
+            textIndex = text.length
+            onAnimationComplete()
+        } else {
+            textIndex = 0
+            while (textIndex < text.length) {
+                // Szybkość pisania. Zmień delay, aby przyspieszyć lub zwolnić
+                delay(15)
+                textIndex++
             }
-            cursor = match.range.last + 1
-        }
-        
-        if (cursor < raw.length) {
-            append(raw.substring(cursor))
+            onAnimationComplete()
         }
     }
 
-    Text(
-        text = annotatedString,
-        style = TextStyle(
+    // Wyświetlany fragment tekstu
+    val displayedText = text.substring(0, textIndex)
+
+    // Kliknięcie w tekst pomija animację
+    Box(modifier = Modifier.clickable(
+        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+        indication = null // Brak wizualnego efektu kliknięcia (riple)
+    ) {
+        skipAnimation = true
+    }) {
+        Text(
+            text = displayedText,
+            style = if (isLarge) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
+            color = theme.contentColor,
             fontFamily = theme.fontFamily,
-            lineHeight = if (isLarge) 36.sp else 30.sp,
-            fontSize = if (isLarge) 24.sp else 18.sp,
-            letterSpacing = 0.5.sp
-        ),
-        color = theme.contentColor
-    )
+            lineHeight = if (isLarge) 32.sp else 28.sp,
+            fontSize = if (isLarge) 20.sp else 16.sp
+        )
+    }
 }
 
 @Composable

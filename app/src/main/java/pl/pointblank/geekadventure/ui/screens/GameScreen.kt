@@ -2,9 +2,14 @@ package pl.pointblank.geekadventure.ui.screens
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -14,8 +19,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewModelScope
@@ -44,7 +62,7 @@ fun GameScreen(
     val currentUiState by viewModel.uiState.collectAsState()
     val loreEntries by viewModel.loreEntries.collectAsState()
     val userStats by viewModel.userStats.collectAsState()
-    
+
     var userInput by remember { mutableStateOf("") }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -53,6 +71,13 @@ fun GameScreen(
     LaunchedEffect(Unit) {
         delay(100)
         contentVisible = true
+    }
+
+    var isTextRevealFinished by remember { mutableStateOf(false) }
+    LaunchedEffect(currentUiState) {
+        if (currentUiState is GameState.Success) {
+            isTextRevealFinished = false
+        }
     }
 
     var showDamageFlash by remember { mutableStateOf(false) }
@@ -93,17 +118,23 @@ fun GameScreen(
     val isForKids = scenario?.isForKids ?: false
     val baseThemeColor = scenario?.themeColor ?: MaterialTheme.colorScheme.primary
     val baseSecondaryColor = scenario?.secondaryColor ?: MaterialTheme.colorScheme.secondary
-    
+
     val theme = remember(style, baseThemeColor) {
         ThemeEngine.getTheme(style, baseThemeColor, baseSecondaryColor)
     }
 
-    val animatedBgColor by animateColorAsState(targetValue = theme.backgroundColor, label = "bg")
+    val animatedBgTransition = rememberInfiniteTransition(label = "bg_breathe")
+    val bgBreatheAlpha by animatedBgTransition.animateFloat(
+        initialValue = 0.8f,
+        targetValue = 0.95f,
+        animationSpec = infiniteRepeatable(tween(8000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "alpha"
+    )
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (isTablet) {
             Scaffold(
-                containerColor = animatedBgColor,
+                containerColor = theme.backgroundColor,
                 topBar = {
                     CenterAlignedTopAppBar(
                         title = {
@@ -113,7 +144,12 @@ fun GameScreen(
                                 fontWeight = FontWeight.ExtraBold,
                                 letterSpacing = 3.sp,
                                 color = theme.primaryColor,
-                                fontSize = 20.sp
+                                fontSize = 20.sp,
+                                style = if (style == ScenarioStyle.CYBERPUNK) {
+                                    androidx.compose.ui.text.TextStyle(
+                                        shadow = Shadow(color = theme.primaryColor, blurRadius = 15f)
+                                    )
+                                } else MaterialTheme.typography.titleMedium
                             )
                         },
                         navigationIcon = {
@@ -125,7 +161,16 @@ fun GameScreen(
                     )
                 }
             ) { paddingValues ->
-                Box(modifier = Modifier.padding(paddingValues).fillMaxSize().vignette(Color.Black.copy(alpha = 0.8f))) {
+                Box(
+                    modifier = Modifier
+                        .padding(paddingValues)
+                        .fillMaxSize()
+                        .vignette(Color.Black.copy(alpha = bgBreatheAlpha))
+                ) {
+                    if (style == ScenarioStyle.CYBERPUNK || style == ScenarioStyle.HORROR) {
+                        ScanlineOverlay()
+                    }
+
                     Row(modifier = Modifier.fillMaxSize()) {
                         AnimatedVisibility(
                             visible = contentVisible,
@@ -156,14 +201,23 @@ fun GameScreen(
                                         if (scenario != null) viewModel.initGame(scenario, resume = true) else onBack()
                                     }
                                     is GameState.Success -> {
-                                        ImmersiveGameContent(parsed = parsed!!, theme = theme, isForKids = isForKids)
+                                        ImmersiveGameContent(
+                                            parsed = parsed!!,
+                                            theme = theme,
+                                            style = style,
+                                            isForKids = isForKids,
+                                            onTextRevealFinished = { isTextRevealFinished = true }
+                                        )
                                     }
                                 }
                             }
 
                             AnimatedVisibility(
-                                visible = contentVisible && currentUiState is GameState.Success,
-                                enter = slideInVertically(animationSpec = tween(600)) { it } + fadeIn()
+                                visible = contentVisible && currentUiState is GameState.Success && isTextRevealFinished,
+                                enter = slideInVertically(
+                                    animationSpec = tween(600),
+                                    initialOffsetY = { fullHeight -> fullHeight }
+                                ) + fadeIn()
                             ) {
                                 if (parsed != null) {
                                     ImmersiveInteractionArea(
@@ -181,7 +235,7 @@ fun GameScreen(
                             }
                         }
                     }
-                    
+
                     if (damageAlpha > 0f) {
                         Box(modifier = Modifier.fillMaxSize().background(Color.Red.copy(alpha = damageAlpha)))
                     }
@@ -207,7 +261,7 @@ fun GameScreen(
                 }
             ) {
                 Scaffold(
-                    containerColor = animatedBgColor,
+                    containerColor = theme.backgroundColor,
                     topBar = {
                         CenterAlignedTopAppBar(
                             title = {
@@ -216,7 +270,12 @@ fun GameScreen(
                                     fontFamily = theme.fontFamily,
                                     fontWeight = FontWeight.Black,
                                     letterSpacing = 2.sp,
-                                    color = theme.primaryColor
+                                    color = theme.primaryColor,
+                                    style = if (style == ScenarioStyle.CYBERPUNK) {
+                                        androidx.compose.ui.text.TextStyle(
+                                            shadow = Shadow(color = theme.primaryColor, blurRadius = 15f)
+                                        )
+                                    } else MaterialTheme.typography.titleMedium
                                 )
                             },
                             navigationIcon = {
@@ -233,7 +292,16 @@ fun GameScreen(
                         )
                     }
                 ) { paddingValues ->
-                    Box(modifier = Modifier.padding(paddingValues).fillMaxSize().vignette(Color.Black.copy(alpha = 0.8f))) {
+                    Box(
+                        modifier = Modifier
+                            .padding(paddingValues)
+                            .fillMaxSize()
+                            .vignette(Color.Black.copy(alpha = bgBreatheAlpha))
+                    ) {
+                        if (style == ScenarioStyle.CYBERPUNK || style == ScenarioStyle.HORROR) {
+                            ScanlineOverlay()
+                        }
+
                         Column(modifier = Modifier.fillMaxSize()) {
                             Box(modifier = Modifier.weight(1f)) {
                                 when (val state = currentUiState) {
@@ -243,14 +311,23 @@ fun GameScreen(
                                         if (scenario != null) viewModel.initGame(scenario, resume = true) else onBack()
                                     }
                                     is GameState.Success -> {
-                                        ImmersiveGameContent(parsed = parsed!!, theme = theme, isForKids = isForKids)
+                                        ImmersiveGameContent(
+                                            parsed = parsed!!,
+                                            theme = theme,
+                                            style = style,
+                                            isForKids = isForKids,
+                                            onTextRevealFinished = { isTextRevealFinished = true }
+                                        )
                                     }
                                 }
                             }
 
                             AnimatedVisibility(
-                                visible = contentVisible && currentUiState is GameState.Success,
-                                enter = slideInVertically(animationSpec = tween(600, easing = LinearOutSlowInEasing)) { it } + fadeIn()
+                                visible = contentVisible && currentUiState is GameState.Success && isTextRevealFinished,
+                                enter = slideInVertically(
+                                    animationSpec = tween(600, easing = LinearOutSlowInEasing),
+                                    initialOffsetY = { fullHeight -> fullHeight }
+                                ) + fadeIn()
                             ) {
                                 if (parsed != null) {
                                     ImmersiveInteractionArea(
@@ -295,13 +372,110 @@ fun GameScreen(
 }
 
 @Composable
+fun TypewriterText(
+    text: String,
+    theme: GameThemeData,
+    style: ScenarioStyle,
+    isLarge: Boolean = false,
+    onAnimationComplete: () -> Unit = {}
+) {
+    var textIndex by remember { mutableIntStateOf(0) }
+    var skipAnimation by remember { mutableStateOf(false) }
+
+    LaunchedEffect(text, skipAnimation) {
+        if (skipAnimation) {
+            textIndex = text.length
+            onAnimationComplete()
+        } else {
+            textIndex = 0
+            while (textIndex < text.length) {
+                val delayTime = when {
+                    textIndex < 10 -> 40L
+                    text[textIndex] == ' ' -> 10L
+                    text[textIndex] == '\n' -> 50L
+                    else -> 15L
+                }
+                delay(delayTime)
+                textIndex++
+            }
+            onAnimationComplete()
+        }
+    }
+
+    val rawDisplayedText = text.substring(0, textIndex)
+
+    Box(modifier = Modifier.clickable(
+        interactionSource = remember { MutableInteractionSource() },
+        indication = null
+    ) {
+        skipAnimation = true
+    }) {
+        Text(
+            text = parseMarkdownInline(rawDisplayedText),
+            color = theme.contentColor,
+            fontFamily = theme.fontFamily,
+            lineHeight = if (isLarge) 32.sp else 28.sp,
+            fontSize = if (isLarge) 20.sp else 16.sp,
+            style = if (style == ScenarioStyle.CYBERPUNK) {
+                MaterialTheme.typography.bodyMedium.copy(
+                    shadow = Shadow(color = theme.primaryColor.copy(alpha = 0.6f), blurRadius = 10f)
+                )
+            } else {
+                if (isLarge) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium
+            }
+        )
+    }
+}
+
+fun parseMarkdownInline(text: String): AnnotatedString {
+    return buildAnnotatedString {
+        var currentIndex = 0
+        val boldRegex = Regex("\\*\\*(.*?)\\*\\*")
+        val matches = boldRegex.findAll(text)
+
+        matches.forEach { match ->
+            append(text.substring(currentIndex, match.range.first))
+
+            val boldContent = match.groupValues[1]
+            withStyle(style = SpanStyle(fontWeight = FontWeight.Black)) {
+                append(boldContent)
+            }
+
+            currentIndex = match.range.last + 1
+        }
+
+        if (currentIndex < text.length) {
+            append(text.substring(currentIndex))
+        }
+    }
+}
+
+@Composable
+fun ScanlineOverlay() {
+    Canvas(modifier = Modifier.fillMaxSize().alpha(0.03f)) {
+        val lineCount = (size.height / 6f).toInt()
+        for (i in 0 until lineCount) {
+            val y = i * 6f
+            drawLine(
+                color = Color.Cyan,
+                start = Offset(0f, y),
+                end = Offset(size.width, y),
+                strokeWidth = 2f
+            )
+        }
+    }
+}
+
+@Composable
 fun ImmersiveGameContent(
     parsed: ResponseParser.ParsedResponse,
     theme: GameThemeData,
-    isForKids: Boolean = false
+    style: ScenarioStyle,
+    isForKids: Boolean = false,
+    onTextRevealFinished: () -> Unit
 ) {
     val scrollState = rememberScrollState()
-    
+
     LaunchedEffect(parsed.cleanText) {
         scrollState.animateScrollTo(scrollState.maxValue)
     }
@@ -318,12 +492,18 @@ fun ImmersiveGameContent(
         if (parsed.chapterTitle != null) {
             Text(
                 text = parsed.chapterTitle,
-                style = MaterialTheme.typography.headlineSmall,
                 color = theme.primaryColor,
                 fontFamily = theme.fontFamily,
                 fontWeight = FontWeight.Black,
                 fontSize = if (isForKids) 28.sp else 24.sp,
-                modifier = Modifier.padding(bottom = 24.dp).then(textModifier)
+                modifier = Modifier.padding(bottom = 24.dp).then(textModifier),
+                style = if (style == ScenarioStyle.CYBERPUNK) {
+                    MaterialTheme.typography.headlineSmall.copy(
+                        shadow = Shadow(color = theme.primaryColor.copy(alpha = 0.8f), blurRadius = 20f)
+                    )
+                } else {
+                    MaterialTheme.typography.headlineSmall
+                }
             )
         }
 
@@ -331,7 +511,9 @@ fun ImmersiveGameContent(
             TypewriterText(
                 text = parsed.cleanText,
                 theme = theme,
-                isLarge = isForKids
+                style = style,
+                isLarge = isForKids,
+                onAnimationComplete = { onTextRevealFinished() }
             )
         }
 
@@ -353,7 +535,7 @@ fun ImmersiveGameContent(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(160.dp))
     }
 }
@@ -372,9 +554,9 @@ fun ImmersiveInteractionArea(
             .fillMaxWidth()
             .background(
                 brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                    colors = listOf(Color.Transparent, theme.backgroundColor.copy(alpha = 0.95f), theme.backgroundColor),
+                    colors = listOf(Color.Transparent, theme.backgroundColor.copy(alpha = 0.98f), theme.backgroundColor),
                     startY = 0f,
-                    endY = 100f
+                    endY = 150f
                 )
             )
             .padding(16.dp),
@@ -384,7 +566,7 @@ fun ImmersiveInteractionArea(
             modifier = Modifier.widthIn(max = 850.dp)
         ) {
             val options = parsed.options.takeIf { it.isNotEmpty() } ?: listOf("A: Kontynuuj")
-            
+
             options.chunked(2).forEach { rowOptions ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -397,7 +579,7 @@ fun ImmersiveInteractionArea(
                             delay(100)
                             visible = true
                         }
-                        
+
                         AnimatedVisibility(
                             visible = visible,
                             modifier = Modifier.weight(1f),
@@ -424,12 +606,12 @@ fun ImmersiveInteractionArea(
                     value = userInput,
                     onValueChange = onUserInputChange,
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { 
+                    placeholder = {
                         Text(
-                            "Wpisz własną akcję...", 
+                            "Wpisz własną akcję...",
                             color = theme.contentColor.copy(alpha = 0.4f),
                             fontFamily = theme.fontFamily
-                        ) 
+                        )
                     },
                     trailingIcon = {
                         IconButton(onClick = { if (userInput.isNotBlank()) onSend(userInput) }) {
@@ -474,26 +656,23 @@ fun ProcessingView(color: Color) {
 
 @Composable
 fun ThematicDrawerContent(
-    themeColor: Color, 
-    style: ScenarioStyle, 
-    parsed: ResponseParser.ParsedResponse?, 
+    themeColor: Color,
+    style: ScenarioStyle,
+    parsed: ResponseParser.ParsedResponse?,
     loreEntries: List<LoreEntry>,
     userStats: UserStats?,
     onUndo: () -> Unit
 ) {
     val theme = ThemeEngine.getTheme(style, themeColor, themeColor)
-    
+    val stats = parsed?.gameState ?: ResponseParser.PlayerStats()
+
     val bgColor = when(style) {
         ScenarioStyle.FANTASY -> Color(0xFFF5E6D3)
         ScenarioStyle.WESTERN -> Color(0xFFD2B48C)
-        ScenarioStyle.SUPERHERO -> Color.White
         else -> Color(0xFF121212)
     }
-    
-    val textColor = when(style) {
-        ScenarioStyle.FANTASY, ScenarioStyle.WESTERN, ScenarioStyle.SUPERHERO -> Color(0xFF2B1B17)
-        else -> Color.White
-    }
+
+    val textColor = if (style == ScenarioStyle.FANTASY || style == ScenarioStyle.WESTERN) Color(0xFF2B1B17) else Color.White
 
     ModalDrawerSheet(
         drawerContainerColor = bgColor,
@@ -505,66 +684,85 @@ fun ThematicDrawerContent(
                 .verticalScroll(rememberScrollState())
         ) {
             Text(
-                "ZASOBY", 
-                style = MaterialTheme.typography.headlineMedium, 
-                color = themeColor, 
+                "ZASOBY",
+                style = MaterialTheme.typography.headlineMedium,
+                color = themeColor,
                 fontWeight = FontWeight.Black,
                 fontFamily = theme.fontFamily
             )
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             UserStatsBar(userStats)
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
-            if ((userStats?.chronocrystals ?: 0) > 0) {
-                Button(
-                    onClick = onUndo,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF), contentColor = Color.Black),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Icon(Icons.Default.History, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("COFNIJ CZAS (1 Kryształ)", fontFamily = theme.fontFamily)
+
+            // --- STATYSTYKI ---
+            Text("STATYSTYKI", style = MaterialTheme.typography.titleSmall, color = themeColor.copy(alpha = 0.7f))
+            StatRow(Icons.Default.Favorite, "HP", "${stats.hp}/100", themeColor, textColor, theme.fontFamily)
+            StatRow(Icons.Default.MonetizationOn, "Kredyty", "${stats.gold}", themeColor, textColor, theme.fontFamily)
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // --- NOWOŚĆ: EKWIPUNEK ---
+            Text("EKWIPUNEK", style = MaterialTheme.typography.titleSmall, color = themeColor.copy(alpha = 0.7f))
+            Spacer(modifier = Modifier.height(8.dp))
+            if (stats.inventory.isEmpty()) {
+                Text("Brak przedmiotów", color = textColor.copy(alpha = 0.5f), fontSize = 14.sp)
+            } else {
+                stats.inventory.forEach { item ->
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+                        Icon(Icons.Default.Inventory2, contentDescription = null, tint = themeColor, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(item, color = textColor, fontSize = 15.sp, fontFamily = theme.fontFamily)
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
-            Text(
-                "STATYSTYKI POSTACI", 
-                style = MaterialTheme.typography.titleLarge, 
-                color = themeColor, 
-                fontWeight = FontWeight.Bold,
-                fontFamily = theme.fontFamily
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            val stats = parsed?.gameState ?: ResponseParser.PlayerStats()
-            StatRow(Icons.Default.Person, "Klasa", stats.`class`, themeColor, textColor, theme.fontFamily)
-            StatRow(Icons.Default.Favorite, "HP", "${stats.hp}/100", themeColor, textColor, theme.fontFamily)
-            StatRow(Icons.Default.MonetizationOn, "Złoto", "${stats.gold} szt.", themeColor, textColor, theme.fontFamily)
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            HorizontalDivider(color = themeColor.copy(alpha = 0.3f))
+            HorizontalDivider(color = themeColor.copy(alpha = 0.2f))
             Spacer(modifier = Modifier.height(24.dp))
-            
+
+            // --- DZIENNIK LORE ---
             Text(
-                "DZIENNIK LORE", 
-                style = MaterialTheme.typography.titleLarge, 
-                color = themeColor, 
+                "DZIENNIK LORE",
+                style = MaterialTheme.typography.titleLarge,
+                color = themeColor,
                 fontWeight = FontWeight.Bold,
                 fontFamily = theme.fontFamily
             )
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             if (loreEntries.isEmpty()) {
-                Text("Odkrywaj świat, aby zapisać fakty.", color = textColor.copy(alpha = 0.6f), fontFamily = theme.fontFamily)
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        Icons.Default.CloudOff,
+                        contentDescription = null,
+                        tint = textColor.copy(alpha = 0.2f),
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Baza danych czysta. Skanuj otoczenie i rozmawiaj z NPC, aby zaindeksować kluczowe fakty.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = textColor.copy(alpha = 0.4f),
+                        textAlign = TextAlign.Center,
+                        fontFamily = theme.fontFamily
+                    )
+                }
             } else {
                 loreEntries.forEach { entry ->
-                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                        Text(entry.key, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = textColor, fontFamily = theme.fontFamily)
-                        Text(entry.description, style = MaterialTheme.typography.bodyMedium, color = textColor.copy(alpha = 0.8f), fontFamily = theme.fontFamily)
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = themeColor.copy(alpha = 0.05f)),
+                        modifier = Modifier.padding(vertical = 4.dp).fillMaxWidth(),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, themeColor.copy(alpha = 0.1f))
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(entry.key.uppercase(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = themeColor)
+                            Text(entry.description, style = MaterialTheme.typography.bodyMedium, color = textColor.copy(alpha = 0.9f))
+                        }
                     }
                 }
             }

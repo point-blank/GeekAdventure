@@ -29,7 +29,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getDatabase(application)
     val chatDao = db.chatDao()
-    private val billingManager = BillingManager(application)
+    private val billingManager = BillingManager(application) { productId ->
+        processPurchaseSuccess(productId)
+    }
     private val adsManager = AdsManager(application)
 
     private val _uiState = MutableStateFlow<GameState>(GameState.Loading)
@@ -45,39 +47,41 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         Scenariusz: [SCENARIO_TITLE]
         Prompt bazowy: [SCENARIO_PROMPT]
         Opis: [SCENARIO_DESC]
-        WAŻNE: Nie używaj nazw zastrzeżonych (np. Cyberpunk 2077, Gandalf, Batman). Stwórz własne, unikalne uniwersum inspirowane tymi gatunkami.
+        WAŻNE: Nie używaj nazw zastrzeżonych. Stwórz własne, unikalne uniwersum inspirowane tymi gatunkami.
 
         ZASADY PROWADZENIA:
         1. PERSPEKTYWA: Pisz w 2. osobie liczby pojedynczej. Styl ma być immersyjny i zwięzły.
         2. STRUKTURA KAŻDEJ ODPOWIEDZI: 
            - [Nagłówek: Tytuł Sceny]
            - Treść fabularna (2-3 akapity).
-           - OPISY MOŻLIWOŚCI: W treści narracji, przed listą wyboru, opisz barwnie co postać może zrobić (np. "Możesz spróbować wyważyć te zardzewiałe drzwi siłą, albo użyć wytrychów, by uniknąć hałasu...").
-           - LISTA WYBORU: A, B, C, D. Każda opcja musi być skrajnie krótka: [Atrybut] Akcja. Przykład: "A: [Siła] Wyważenie", "B: [Zwinność] Skok", "C: [Inteligencja] Hakowanie".
+           - OPISY MOŻLIWOŚCI: W treści narracji barwnie opisz co postać może zrobić.
+           - LISTA WYBORU: ZAWSZE na końcu podaj opcje jako A, B, C, D. Każda opcja musi być krótka: [Atrybut] Akcja (np. "A: [Siła] Wyważenie drzwi", "B: [Zwinność] Skok").
            - ORAZ ZAWSZE na samym końcu dodaj tag [GAME_STATE: json_obiekt].
-           - JEŚLI WYMAGANY TEST: Dodaj tag [RZUT: d20, trudność: X]. ZAKAZ decydowania o wyniku testu przez AI.
+           "- JEŚLI GRACZ ODKRYJE COŚ WAŻNEGO (przedmiot, imię postaci, fakt o świecie): Zawsze dodaj tag [LORE_UPDATE: {"Klucz": "Opis"}]. To jedyny sposób, by gracz zapamiętał te informacje w swoim dzienniku!"
         
         FORMAT GAME_STATE JSON:
         {"hp": Int, "gold": Int, "inventory": [String], "class": String, "stats": {"Str": Int, "Dex": Int, "Int": Int}}
 
-        3. MECHANIKA RZUTÓW: Kiedy użyjesz tagu [RZUT: ...], silnik gry wyświetli kostkę graczowi. Po rzucie otrzymasz od gracza wiadomość "RZUT KOSTKĄ: Wynik to Y". Dopiero WTEDY opisujesz sukces lub porażkę.
+        3. ZASADY RZUTÓW KOŚCIĄ (KRYTYCZNE):
+           NIGDY nie wykonuj rzutów kością za gracza. NIGDY nie decyduj o wyniku testu.
+           Jeśli akcja gracza wymaga testu umiejętności (np. Zręczność, Siła), MUSISZ wygenerować tag: [RZUT: d20, trudność: X] (gdzie X to liczba od 5 do 20) i NATYCHMIAST ZAKOŃCZYĆ SWOJĄ ODPOWIEDŹ. 
+           Nie pisz absolutnie niczego po wygenerowaniu tagu [RZUT...]. Nie generuj opcji wyboru (A, B, C) w tej samej turze. Czekaj w milczeniu, aż system aplikacji zwróci Ci wynik rzutu wykonanego fizycznie przez gracza (otrzymasz wiadomość "RZUT KOSTKĄ: Wynik to Y"). Dopiero w KOLEJNEJ wiadomości opisz konsekwencje tego wyniku.
+
         4. KONSEKWENCJE: Jeśli gracz podejmie głupią decyzję lub zawali rzut, nie bój się go ukarać utratą zasobów lub śmiercią.
         5. ZŁOTA ZASADA: Nigdy nie opisuj myśli ani działań gracza. Czekaj na jego input.
 
-        PROMPT STARTOWY:
-        Zanim zaczniesz fabułę, przedstaw 3 unikalne archetypy postaci pasujące do wybranego świata. Każdy musi mieć:
-        - Nazwę klasy.
-        - Krótki opis.
-        - Statystyki bazowe (Siła, Zręczność, Inteligencja).
-        - Startowy ekwipunek.
-        Prezentuj te klasy jako opcje A, B, C.
+        PROMPT STARTOWY (TWORZENIE POSTACI):
+        Zanim zaczniesz fabułę, przedstaw 3 unikalne klasy postaci do wyboru.
+        - Każdą klasę opisz używając MYŚLNIKÓW/PUNKTORÓW (KRYTYCZNE: NIGDY nie używaj cyfr 1, 2, 3 ani liter A, B, C do tworzenia nagłówków klas w tekście, by nie mylić systemu gry!).
+        - Podaj Opis, Statystyki bazowe (Siła, Zręczność, Inteligencja) i Startowy ekwipunek.
+        - Dopiero na samym końcu wygeneruj LISTĘ WYBORU (A, B, C), która zawiera TYLKO nazwy tych klas (np. "A: Techno-Górnik", "B: Neonowy Cień", "C: Net-Czarownik"). W pierwszym wyborze klas nie dodawaj tagów atrybutów typu [Siła] na początku nazwy.
     """.trimIndent()
 
     fun showRewardedAd(activity: Activity) {
         adsManager.showRewardedAd(activity) { amount ->
             viewModelScope.launch {
                 val current = userStats.value ?: UserStats()
-                val updated = current.copy(actionPoints = (current.actionPoints + 1).coerceAtMost(10))
+                val updated = current.copy(actionPoints = (current.actionPoints + 3).coerceAtMost(10))
                 chatDao.insertUserStats(updated)
             }
         }
@@ -113,9 +117,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            chatDao.getUserStats().collect {
-                if (it == null) {
+            chatDao.getUserStats().collect { stats ->
+                if (stats == null) {
                     chatDao.insertUserStats(UserStats())
+                } else {
+                    // Jeśli statystyki istnieją, odśwież energię od razu po starcie
+                    checkAndRefillEnergy()
                 }
             }
         }
@@ -125,13 +132,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val current = userStats.value ?: UserStats()
         val now = System.currentTimeMillis()
         val minutesPassed = (now - current.lastRefillTime) / (1000 * 60)
-        val pointsToAdd = (minutesPassed / 15).toInt()
+
+        val pointsToAdd = (minutesPassed / 30).toInt()
 
         if (pointsToAdd > 0) {
             val newPoints = (current.actionPoints + pointsToAdd).coerceAtMost(10)
             val newStats = current.copy(
                 actionPoints = newPoints,
-                lastRefillTime = now - (minutesPassed % 15) * 60 * 1000
+                // ZMIANA: Resetujemy timer bazując na 30-minutowych interwałach
+                lastRefillTime = now - (minutesPassed % 30) * 60 * 1000
             )
             chatDao.insertUserStats(newStats)
             return newStats
@@ -143,9 +152,24 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         return chatDao.getMessageCount(scenarioId) > 0
     }
 
+    fun onResume() {
+        viewModelScope.launch {
+            // To wymusi przeliczenie czasu i dodanie punktów, jeśli minęło 30 min
+            checkAndRefillEnergy()
+
+            // Opcjonalnie: możesz tu też odświeżyć stan reklam lub produktów,
+            // aby upewnić się, że sklep jest aktualny po powrocie z tła
+            billingManager.queryPurchases()
+        }
+    }
+
     fun initGame(scenario: Scenario, enableImages: Boolean = false, resume: Boolean = false) {
         currentScenario = scenario
         imageGenerationEnabled = enableImages
+
+        viewModelScope.launch {
+            checkAndRefillEnergy()
+        }
         
         val config = generationConfig {
             temperature = 0.8f
@@ -251,7 +275,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val stats = checkAndRefillEnergy()
                 if (saveToHistory && stats.actionPoints <= 0 && !stats.isPremiumUser) {
-                    _uiState.value = GameState.Error("Brak energii! Odczekaj 15 minut lub obejrzyj reklamę w Sklepie.")
+                    _uiState.value = GameState.Error("Brak energii! Odczekaj 30 minut lub obejrzyj reklamę w Sklepie.")
                     return@launch
                 }
 

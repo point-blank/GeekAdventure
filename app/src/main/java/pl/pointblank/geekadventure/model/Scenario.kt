@@ -23,5 +23,7 @@ data class Scenario(
     val imageUrl: String? = null,
     val isPremium: Boolean = false,
     val isForKids: Boolean = false,
-    val iconRes: Int? = null // Nowe pole
+    val iconRes: Int? = null,
+    val backgroundResId: Int? = null,
+    val foregroundResId: Int? = null
 )

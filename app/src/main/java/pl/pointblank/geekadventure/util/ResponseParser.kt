@@ -34,7 +34,7 @@ object ResponseParser {
 
     fun parse(rawText: String): ParsedResponse {
         var cleanText = rawText
-        
+
         // 1. Wyciąganie Nagłówka Rozdziału
         val chapterRegex = Regex("\\[Nagłówka: ([^]]+)]")
         val chapterMatch = chapterRegex.find(cleanText)
@@ -86,14 +86,52 @@ object ResponseParser {
         }
         cleanText = cleanText.replace(loreRegex, "")
 
-        // 7. Wyciąganie opcji
-        val optionRegex = Regex("(?m)^[\\s*-]*\\*?([A-E])\\*?[:.)] (.*)$")
+// 7. Wyciąganie opcji (PANCERNY REGEX)
+        val optionRegex = Regex("(?m)^[\\s]*[*-]*\\s*\\*?([A-Ea-e1-9])\\*?[:.)]\\s*(.*)$")
         val options = mutableListOf<String>()
         val matches = optionRegex.findAll(cleanText)
+
         matches.forEach { match ->
-            val letter = match.groupValues[1]
-            val content = match.groupValues[2].replace("*", "").trim()
-            options.add("$letter: $content")
+            val identifier = match.groupValues[1].uppercase()
+            val fullContent = match.groupValues[2].replace("*", "").trim()
+
+            // Konwertujemy cyfry na litery dla spójności interfejsu (1 -> A)
+            val mappedLetter = when (identifier) {
+                "1" -> "A"
+                "2" -> "B"
+                "3" -> "C"
+                "4" -> "D"
+                "5" -> "E"
+                else -> identifier
+            }
+
+            // SMART SHORTENER - Wyciągamy krótki tytuł do przycisku!
+            var shortContent = fullContent
+
+            // Scenariusz A: Tytuł jest w nawiasach kwadratowych, np. "[Właz serwisowy] - Ryzykujesz..."
+            val bracketMatch = Regex("\\[(.*?)\\]").find(fullContent)
+            if (bracketMatch != null) {
+                shortContent = bracketMatch.groupValues[1]
+            } else {
+                // Scenariusz B: Użyto myślnika lub dwukropka, np. "Właz serwisowy - Ryzykujesz..."
+                val dashIndex = fullContent.indexOfFirst { it == '-' || it == ':' }
+                if (dashIndex > 0) {
+                    shortContent = fullContent.substring(0, dashIndex).trim()
+                } else {
+                    // Scenariusz C: Zwykłe, długie zdanie. Bierzemy pierwsze 4 słowa.
+                    val words = fullContent.split("\\s+".toRegex())
+                    if (words.size > 5) {
+                        shortContent = words.take(4).joinToString(" ") + "..."
+                    }
+                }
+            }
+
+            // Ekstremalne zabezpieczenie na długość (żeby na 100% nie rozsadziło przycisku)
+            if (shortContent.length > 25) {
+                shortContent = shortContent.take(22) + "..."
+            }
+
+            options.add("$mappedLetter: $shortContent")
         }
 
         return ParsedResponse(

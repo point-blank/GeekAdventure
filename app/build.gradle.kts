@@ -40,7 +40,7 @@ android {
     buildFeatures {
         compose = true
     }
-    // composeOptions { kotlinCompilerExtensionVersion ... } - TO JUŻ NIE JEST POTRZEBNE OD KOTLIN 2.0
+
 }
 
 dependencies {

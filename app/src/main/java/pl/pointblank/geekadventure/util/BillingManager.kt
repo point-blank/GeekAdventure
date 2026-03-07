@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class BillingManager(private val context: Context) {
+class BillingManager(private val context: Context, private val onPurchaseSuccess: (String) -> Unit) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     
@@ -64,6 +64,33 @@ class BillingManager(private val context: Context) {
                 startConnection()
             }
         })
+    }
+
+    fun queryPurchases() {
+        val client = billingClient ?: return
+        if (!client.isReady) return
+
+        // 1. Sprawdzamy subskrypcje (Geek Master)
+        val subParams = QueryPurchasesParams.newBuilder()
+            .setProductType(BillingClient.ProductType.SUBS)
+            .build()
+
+        client.queryPurchasesAsync(subParams) { billingResult, purchases ->
+            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                purchases.forEach { handlePurchase(it) }
+            }
+        }
+
+        // 2. Sprawdzamy produkty jednorazowe (jeśli jakieś nie zostały skonsumowane)
+        val inAppParams = QueryPurchasesParams.newBuilder()
+            .setProductType(BillingClient.ProductType.INAPP)
+            .build()
+
+        client.queryPurchasesAsync(inAppParams) { billingResult, purchases ->
+            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                purchases.forEach { handlePurchase(it) }
+            }
+        }
     }
 
     private fun queryProducts() {
@@ -142,6 +169,9 @@ class BillingManager(private val context: Context) {
                         .setPurchaseToken(purchase.purchaseToken)
                         .build()
                     billingClient?.acknowledgePurchase(acknowledgeParams)
+                    purchase.products.forEach { productId ->
+                        onPurchaseSuccess(productId)
+                    }
                 }
                 
                 if (purchase.products.contains(ENERGY_PACK) || purchase.products.contains(CRYSTAL_PACK)) {
@@ -149,6 +179,9 @@ class BillingManager(private val context: Context) {
                         .setPurchaseToken(purchase.purchaseToken)
                         .build()
                     billingClient?.consumePurchase(consumeParams)
+                    purchase.products.forEach { productId ->
+                        onPurchaseSuccess(productId)
+                    }
                 }
             }
         }
